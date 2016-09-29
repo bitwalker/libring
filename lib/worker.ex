@@ -34,7 +34,7 @@ defmodule HashRing.Worker do
         node_whitelist = Keyword.get(options, :node_whitelist, [])
         ring = Enum.reduce(nodes, ring, fn node, acc ->
           cond do
-            ignore_node?(node, node_blacklist, node_whitelist) ->
+            HashRing.Utils.ignore_node?(node, node_blacklist, node_whitelist) ->
               acc
             :else ->
               HashRing.add_node(acc, node)
@@ -71,7 +71,7 @@ defmodule HashRing.Worker do
 
   def handle_info({:nodeup, node, _info}, {ring, b, w} = state) do
     cond do
-      ignore_node?(node, b, w) ->
+      HashRing.Utils.ignore_node?(node, b, w) ->
         {:noreply, state}
       :else ->
         {:noreply, HashRing.add_node(ring, node)}
@@ -79,31 +79,5 @@ defmodule HashRing.Worker do
   end
   def handle_info({:nodedown, node, _info}, {ring, b, w}) do
     {:noreply, {HashRing.remove_node(ring, node), b, w}}
-  end
-
-  defp ignore_node?(_node, [], []), do: false
-  defp ignore_node?(node, blacklist, []) when is_list(blacklist) do
-    node_s = Atom.to_string(node)
-    Enum.any?(blacklist, fn
-      ^node_s ->
-        true
-      %Regex{} = pattern ->
-        Regex.match?(pattern, node_s)
-      pattern when is_binary(pattern) ->
-        rx = Regex.compile!(pattern)
-        Regex.match?(rx, node_s)
-    end)
-  end
-  defp ignore_node?(node, _blacklist, whitelist) when is_list(whitelist) do
-    node_s = Atom.to_string(node)
-    Enum.any?(whitelist, fn
-      ^node_s ->
-        false
-      %Regex{} = pattern ->
-        not Regex.match?(pattern, node_s)
-      pattern when is_binary(pattern) ->
-        rx = Regex.compile!(pattern)
-        not Regex.match?(rx, node_s)
-    end)
   end
 end
