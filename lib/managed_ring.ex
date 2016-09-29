@@ -62,8 +62,8 @@ defmodule HashRing.Managed do
       iex> HashRing.Managed.new(:test3, [nodes: "a"])
       {:error, {:invalid_option, {:nodes, "a"}}}
   """
-  @spec new(ring) :: :ok | {:error, :already_exists}
-  @spec new(ring, ring_options) :: :ok | {:error, :already_exists} | {:error, {:invalid_option, term}}
+  @spec new(ring) :: {:ok, pid} | {:error, :already_exists}
+  @spec new(ring, ring_options) :: {:ok, pid} | {:error, :already_exists} | {:error, {:invalid_option, term}}
   def new(name, ring_options \\ []) when is_list(ring_options) do
     opts = [{:name, name}|ring_options]
     invalid = Enum.find(opts, fn
