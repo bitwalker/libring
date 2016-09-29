@@ -10,7 +10,10 @@ defmodule HashRing.Mixfile do
      description: "A fast consistent hash ring implementation in Elixir",
      package: package,
      docs: docs(),
-     deps: deps()]
+     deps: deps(),
+     dialyzer: [
+       flags: ~w(-Wunmatched_returns -Werror_handling -Wrace_conditions -Wno_opaque -Wunderspecs)
+     ]]
   end
 
   def application do
@@ -22,6 +25,7 @@ defmodule HashRing.Mixfile do
     [
      {:ex_doc, "~> 0.13", only: :dev},
      {:benchee, "~> 0.4", only: :dev},
+     {:dialyxir, "~> 0.3", only: :dev},
      # Uncomment the following for benchmarks
      # {:hash_ring, github: "voicelayer/hash-ring", only: :dev},
      # {:hash_ring, ">= 0.0.0", only: :dev},
