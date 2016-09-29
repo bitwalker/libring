@@ -65,7 +65,7 @@ defmodule HashRing.Worker do
     {:reply, HashRing.key_to_node(ring, key), state}
   end
   def handle_call(:delete, _from, state) do
-    :net_kernel.monitor_nodes(false)
+    :ok = :net_kernel.monitor_nodes(false)
     {:stop, :shutdown, state}
   end
 
