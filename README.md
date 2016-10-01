@@ -1,5 +1,7 @@
 # libring - A fast consistent hash ring for Elixir
 
+[![Hex.pm Version](http://img.shields.io/hexpm/v/libring.svg?style=flat)](https://hex.pm/packages/libring)
+
 This library implements a stateful consistent hash ring. It's extremely fast
 (in benchmarks it's faster than all other implementations I've tested against,
 namely [voicelayer/hash-ring](https://github.com/voicelayer/hash-ring) and 
