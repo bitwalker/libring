@@ -1,12 +1,15 @@
 # libring - A fast consistent hash ring for Elixir
 
 This library implements a stateful consistent hash ring. It's extremely fast
-(in benchmarks it's faster than all other implementations I've tested against),
-it has no external dependencies, and is written in Elixir.
+(in benchmarks it's faster than all other implementations I've tested against,
+namely [voicelayer/hash-ring](https://github.com/voicelayer/hash-ring) and 
+[sile/hash_ring](https://github.com/sile/hash_ring)), it has no external dependencies, 
+and is written in Elixir.
 
 The algorithm is based on [libketama](https://github.com/rj/ketama). Nodes on the
 ring are broken into shards and each one is assigned an integer value in the keyspace, which
-is the set of integers from 1 to 2^32-1. The distribution of these shards is random.
+is the set of integers from 1 to 2^32-1. The distribution of these shards is random, but
+deterministic.
 
 Keys are then mapped to a shard by converting the key to a binary, hashing it with SHA-256, 
 converting the hash to an integer in the keyspace, then finding the shard which is assigned
@@ -24,7 +27,7 @@ Add `:libring` to your deps, and run `mix deps.get`.
 
 ```elixir
 def deps do
-  [{:libring, "~> 0.1"}]
+  [{:libring, "~> 1.1"}]
 end
 ```
 
@@ -53,12 +56,14 @@ ring = HashRing.new()
 "c" = HashRing.key_to_node({:myworker, 123})
 ```
 
+**NOTE**: Node names do not have to be strings, they can be atoms, tuples, etc.
+
 ## HashRing.Managed
 
 This API works with rings which are held in the internal state of a GenServer process.
 It supports the same API as `HashRing`. Because of this, there is a performance overhead
 due to the messaging, and the GenServer can be a potential bottleneck. If this is the case
-you are better exploring ways to use the raw `HashRing` API. However this API is best suited
+you are better off exploring ways to use the raw `HashRing` API. However this API is best suited
 for situations where you have multiple processes accessing the ring, or need to maintain multiple
 rings.
 
@@ -72,22 +77,20 @@ rings.
 "c" = HashRing.Managed.key_to_node(:myring, {:myworker, 123})
 ```
 
-If your rings map 1:1 with Erlang cluster membership, you can configure rings to automatically
-monitor node up/down events and update the hash ring accordingly, filtered by either a whitelist 
-or blacklist. You configure this at the ring level in your `config.exs`, like so:
+You can configure managed rings in `config.exs`, and they will be created and initialized
+when the `:libring` application starts. Configured rings take two shapes, static and dynamic
+rings. Static rings are simply those where the nodes are provided up front, although you can
+always add/remove nodes manually at runtime; dynamic rings have Erlang node monitoring enabled,
+and add or remove nodes on the ring based on cluster membership.
 
-```elixir
-config :libring,
-  rings: [
-    myring: [monitor_nodes: true,
-             node_blacklist: [~r/^remsh.*$/]]
-  ]
-```
+You can whitelist/blacklist nodes when using dynamic rings, so that only those nodes which you
+actually want to distribute work to are used in calculations. This configuration is shown below as well.
 
 If you provide a whitelist, the blacklist will have no effect, and only nodes matching the whitelist
 will be added. If you do not provide a whitelist, the blacklist will be used to filter nodes. If you
-do not provide either, a default blacklist containing the `~r/^remsh.*$/` pattern from the example above,
-which is a good default to prevent remote shell sessions from causing the ring to change.
+do not provide either, a default blacklist containing the `~r/^remsh.*$/` pattern from the example below,
+which is a good default to prevent remote shell sessions (at least those done via releases) from causing 
+the ring to change.
 
 The whitelist and blacklist only have an effect when `monitor_nodes: true`.
 
