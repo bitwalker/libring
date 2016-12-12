@@ -74,7 +74,7 @@ defmodule HashRing.Worker do
       HashRing.Utils.ignore_node?(node, b, w) ->
         {:noreply, state}
       :else ->
-        {:noreply, HashRing.add_node(ring, node)}
+        {:noreply, {HashRing.add_node(ring, node), b, w}}
     end
   end
   def handle_info({:nodedown, node, _info}, {ring, b, w}) do
