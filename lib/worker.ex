@@ -11,7 +11,7 @@ defmodule HashRing.Worker do
 
   defp do_call(name, msg) do
     try do
-      GenServer.call(:"libring_#{name}", msg)
+      GenServer.call(name, msg)
     catch
       :exit, {:noproc, _} ->
         {:error, :no_such_ring}
@@ -20,7 +20,7 @@ defmodule HashRing.Worker do
 
   def start_link(options) do
     name = Keyword.fetch!(options, :name)
-    GenServer.start_link(__MODULE__, options, name: :"libring_#{name}")
+    GenServer.start_link(__MODULE__, options, name: name)
   end
 
   def init(options) do
