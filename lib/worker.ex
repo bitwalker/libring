@@ -29,7 +29,7 @@ defmodule HashRing.Worker do
     monitor_nodes? = Keyword.get(options, :monitor_nodes, false)
     cond do
       monitor_nodes? ->
-        nodes = Node.list(:connected)
+        nodes = [Node.self|Node.list(:connected)]
         node_blacklist = Keyword.get(options, :node_blacklist, [~r/^remsh.*$/])
         node_whitelist = Keyword.get(options, :node_whitelist, [])
         ring = Enum.reduce(nodes, ring, fn node, acc ->
