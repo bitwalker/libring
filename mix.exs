@@ -8,7 +8,7 @@ defmodule HashRing.Mixfile do
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
      description: "A fast consistent hash ring implementation in Elixir",
-     package: package,
+     package: package(),
      docs: docs(),
      deps: deps(),
      dialyzer: [
