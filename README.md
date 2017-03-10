@@ -29,7 +29,7 @@ Add `:libring` to your deps, and run `mix deps.get`.
 
 ```elixir
 def deps do
-  [{:libring, "~> 1.1"}]
+  [{:libring, "~> 1.0"}]
 end
 ```
 
