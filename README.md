@@ -46,7 +46,7 @@ ring = HashRing.new()
        |> HashRing.add_node("a")
        |> HashRing.add_node("b")
 
-"a" = HashRing.key_to_node({:myworker, 123})
+"a" = HashRing.key_to_node(ring, {:myworker, 123})
 ```
 
 You can also specify the weight of each node, and add nodes in bulk:
@@ -55,7 +55,7 @@ You can also specify the weight of each node, and add nodes in bulk:
 ring = HashRing.new()
        |> HashRing.add_nodes(["a", {"b", 64}])
        |> HashRing.add_node("c", 200)
-"c" = HashRing.key_to_node({:myworker, 123})
+"c" = HashRing.key_to_node(ring, {:myworker, 123})
 ```
 
 **NOTE**: Node names do not have to be strings, they can be atoms, tuples, etc.
