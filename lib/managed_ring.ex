@@ -55,10 +55,10 @@ defmodule HashRing.Managed do
       ...> HashRing.Managed.key_to_node(:test1, :foo)
       "b"
 
-      iex> {:ok, _pid} = HashRing.Managed.new(:test2)
-      ...> HashRing.Managed.new(:test2)
-      {:error, :already_exists}
-
+      iex> {:ok, pid} = HashRing.Managed.new(:test2)
+      ...> {:error, {:already_started, existing_pid}} = HashRing.Managed.new(:test2)
+      ...> pid == existing_pid
+      true
       iex> HashRing.Managed.new(:test3, [nodes: "a"])
       {:error, {:invalid_option, {:nodes, "a"}}}
   """
