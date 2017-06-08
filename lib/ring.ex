@@ -57,7 +57,7 @@ defmodule HashRing do
       "a"
   """
   @spec new(node(), pos_integer) :: __MODULE__.t
-  def new(node, weight \\ 128) when is_integer(weight) and weight > 0,
+  def new(node, weight \\ 128) when is_integer(weight) and weight > 0 and byte_size(node) > 0,
     do: add_node(new(), node, weight)
 
   @doc """
@@ -76,7 +76,7 @@ defmodule HashRing do
       "b"
   """
   @spec add_node(__MODULE__.t, term(), pos_integer) :: __MODULE__.t
-  def add_node(%__MODULE__{} = ring, node, weight \\ 128) when is_integer(weight) and weight > 0 do
+  def add_node(%__MODULE__{} = ring, node, weight \\ 128) when is_integer(weight) and weight > 0 and byte_size(node) > 0 do
     cond do
       Enum.member?(ring.nodes, node) ->
         ring
