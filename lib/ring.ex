@@ -61,6 +61,21 @@ defmodule HashRing do
     do: add_node(new(), node, weight)
 
   @doc """
+  Returns the list of nodes which are present on the ring.
+
+  The type of the elements in this list are the same as the type of the elements
+  you initially added to the ring. In the following example, we used strings, but
+  if you were using atoms, such as those used for Erlang node names, you would get
+  a list of atoms back.
+
+      iex> ring = HashRing.new |> HashRing.add_nodes(["a", "b"])
+      ...> HashRing.nodes(ring)
+      ["b", "a"]
+  """
+  @spec nodes(t) :: [term]
+  def nodes(%__MODULE__{nodes: nodes}), do: nodes
+
+  @doc """
   Adds a node to the hash ring, with an optional weight provided which
   determines the number of virtual nodes (shards) that will be assigned to
   it on the ring.

@@ -91,6 +91,21 @@ defmodule HashRing.Managed do
   end
 
   @doc """
+  Same as `HashRing.nodes/1`, returns a list of nodes on the ring.
+
+  ## Examples
+
+      iex> {:ok, _pid} = HashRing.Managed.new(:nodes_test)
+      ...> HashRing.Managed.add_nodes(:nodes_test, [:a, :b])
+      ...> HashRing.Managed.nodes(:nodes_test)
+      [:b, :a]
+  """
+  @spec nodes(ring) :: [term()]
+  def nodes(ring) do
+    HashRing.Worker.nodes(ring)
+  end
+
+  @doc """
   Adds a node to the given hash ring.
 
   An error is returned if the ring does not exist, or the node already exists in the ring.
