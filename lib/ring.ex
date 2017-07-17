@@ -88,7 +88,7 @@ defmodule HashRing do
       ...> ring = HashRing.add_node(ring, "a")
       ...> %HashRing{nodes: ["b", "a"]} = ring = HashRing.add_node(ring, "b", 64)
       ...> HashRing.key_to_node(ring, :foo)
-      "a"
+      "b"
   """
   @spec add_node(__MODULE__.t, term(), pos_integer) :: __MODULE__.t
   def add_node(%__MODULE__{} = ring, node, weight \\ 128) when is_integer(weight) and weight > 0 do
@@ -98,12 +98,13 @@ defmodule HashRing do
       :else ->
         ring = %{ring | nodes: [node|ring.nodes]}
         Enum.reduce(1..weight, ring, fn i, %__MODULE__{ring: r} = acc ->
-          n =
-            :erlang.term_to_binary({node, i})
-            |> :erlang.phash2(@hash_range)
-            #:crypto.hash(:sha256, :erlang.term_to_binary({node, i}))
-            #|> :crypto.bytes_to_integer()
-          %{acc | ring: :gb_trees.insert(n, node, r)}
+          n = :erlang.phash2({node, i}, @hash_range)
+          try do
+            %{acc | ring: :gb_trees.insert(n, node, r)}
+          catch
+            :error, {:key_exists, _} ->
+              acc
+          end
         end)
     end
   end
@@ -120,7 +121,7 @@ defmodule HashRing do
       ...> ring = HashRing.add_nodes(ring, ["a", {"b", 64}])
       ...> %HashRing{nodes: ["b", "a"]} = ring
       ...> HashRing.key_to_node(ring, :foo)
-      "a"
+      "b"
   """
   @spec add_nodes(__MODULE__.t, [term() | {term(), pos_integer}]) :: __MODULE__.t
   def add_nodes(%__MODULE__{} = ring, nodes) when is_list(nodes) do
@@ -174,12 +175,7 @@ defmodule HashRing do
   def key_to_node(%__MODULE__{nodes: []}, _key),
     do: {:error, {:invalid_ring, :no_nodes}}
   def key_to_node(%__MODULE__{ring: r}, key) do
-    #hash = :crypto.hash(:sha256, :erlang.term_to_binary(key))
-           #|> :crypto.bytes_to_integer()
-    hash =
-      key
-      |> :erlang.term_to_binary()
-      |> :erlang.phash2(@hash_range)
+    hash = :erlang.phash2(key, @hash_range)
     case :gb_trees.iterator_from(hash, r) do
       [{_key, node, _, _}|_] ->
         node
