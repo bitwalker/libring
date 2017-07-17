@@ -53,7 +53,7 @@ defmodule HashRing.Managed do
 
       iex> {:ok, _pid} = HashRing.Managed.new(:test1, [nodes: ["a", {"b", 64}]])
       ...> HashRing.Managed.key_to_node(:test1, :foo)
-      "b"
+      "a"
 
       iex> {:ok, pid} = HashRing.Managed.new(:test2)
       ...> {:error, {:already_started, pid}} == HashRing.Managed.new(:test2)
@@ -168,7 +168,7 @@ defmodule HashRing.Managed do
       iex> {:ok, _pid} = HashRing.Managed.new(:test6)
       ...> :ok = HashRing.Managed.add_nodes(:test6, ["a", {"b", 64}])
       ...> HashRing.Managed.key_to_node(:test6, :foo)
-      "b"
+      "a"
 
       iex> {:ok, _pid} = HashRing.Managed.new(:test7)
       ...> HashRing.Managed.add_nodes(:test7, ["a", {"b", :wrong}])
