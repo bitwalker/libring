@@ -60,10 +60,10 @@ defmodule HashRing.Managed do
       ...> pid == existing_pid
       true
       iex> HashRing.Managed.new(:test3, [nodes: "a"])
-      {:error, {:invalid_option, {:nodes, "a"}}}
+      ** (ArgumentError) {:nodes, "a"} is an invalid option for `HashRing.Managed.new/2`
   """
-  @spec new(ring) :: {:ok, pid} | {:error, :already_exists}
-  @spec new(ring, ring_options) :: {:ok, pid} | {:error, :already_exists} | {:error, {:invalid_option, term}}
+  @spec new(ring) :: {:ok, pid} | {:error, {:already_started, pid}}
+  @spec new(ring, ring_options) :: {:ok, pid} | {:error, {:already_started, pid}} | {:error, {:invalid_option, term}}
   def new(name, ring_options \\ []) when is_list(ring_options) do
     opts = [{:name, name}|ring_options]
     invalid = Enum.find(opts, fn
@@ -82,12 +82,27 @@ defmodule HashRing.Managed do
         case Process.whereis(:"libring_#{name}") do
           nil ->
             Supervisor.start_child(HashRing.Supervisor, [opts])
-          _ ->
-            {:error, :already_exists}
+          pid ->
+            {:error, {:already_started, pid}}
         end
       _ ->
-        {:error, {:invalid_option, invalid}}
+        raise ArgumentError, message: "#{inspect invalid} is an invalid option for `HashRing.Managed.new/2`"
     end
+  end
+
+  @doc """
+  Same as `HashRing.nodes/1`, returns a list of nodes on the ring.
+
+  ## Examples
+
+      iex> {:ok, _pid} = HashRing.Managed.new(:nodes_test)
+      ...> HashRing.Managed.add_nodes(:nodes_test, [:a, :b])
+      ...> HashRing.Managed.nodes(:nodes_test)
+      [:b, :a]
+  """
+  @spec nodes(ring) :: [term()]
+  def nodes(ring) do
+    HashRing.Worker.nodes(ring)
   end
 
   @doc """

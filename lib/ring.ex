@@ -61,6 +61,21 @@ defmodule HashRing do
     do: add_node(new(), node, weight)
 
   @doc """
+  Returns the list of nodes which are present on the ring.
+
+  The type of the elements in this list are the same as the type of the elements
+  you initially added to the ring. In the following example, we used strings, but
+  if you were using atoms, such as those used for Erlang node names, you would get
+  a list of atoms back.
+
+      iex> ring = HashRing.new |> HashRing.add_nodes(["a", "b"])
+      ...> HashRing.nodes(ring)
+      ["b", "a"]
+  """
+  @spec nodes(t) :: [term]
+  def nodes(%__MODULE__{nodes: nodes}), do: nodes
+
+  @doc """
   Adds a node to the hash ring, with an optional weight provided which
   determines the number of virtual nodes (shards) that will be assigned to
   it on the ring.
@@ -86,10 +101,13 @@ defmodule HashRing do
       :else ->
         ring = %{ring | nodes: [node|ring.nodes]}
         Enum.reduce(1..weight, ring, fn i, %__MODULE__{ring: r} = acc ->
-          n = :crypto.hash(:sha256, :erlang.term_to_binary({node, i}))
-          |> :crypto.bytes_to_integer()
-          |> :erlang.phash2(@hash_range)
-          %{acc | ring: :gb_trees.insert(n, node, r)}
+          n = :erlang.phash2({node, i}, @hash_range)
+          try do
+            %{acc | ring: :gb_trees.insert(n, node, r)}
+          catch
+            :error, {:key_exists, _} ->
+              acc
+          end
         end)
     end
   end
@@ -160,9 +178,7 @@ defmodule HashRing do
   def key_to_node(%__MODULE__{nodes: []}, _key),
     do: {:error, {:invalid_ring, :no_nodes}}
   def key_to_node(%__MODULE__{ring: r}, key) do
-    hash = :crypto.hash(:sha256, :erlang.term_to_binary(key))
-           |> :crypto.bytes_to_integer()
-           |> :erlang.phash2(@hash_range)
+    hash = :erlang.phash2(key, @hash_range)
     case :gb_trees.iterator_from(hash, r) do
       [{_key, node, _, _}|_] ->
         node
