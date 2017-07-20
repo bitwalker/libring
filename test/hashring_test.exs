@@ -5,6 +5,11 @@ defmodule HashRingTest do
 
   def string, do: utf8()
 
+  test "binary names without a length are rejected" do
+    assert_raise ArgumentError, fn ->
+      HashRing.new("")
+    end
+  end
 
   property "adding one node leaves us with a tree with one node" do
     forall name <- string() do
