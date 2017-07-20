@@ -91,7 +91,10 @@ defmodule HashRing do
       "b"
   """
   @spec add_node(__MODULE__.t, term(), pos_integer) :: __MODULE__.t
-  def add_node(%__MODULE__{} = ring, node, weight \\ 128) when is_integer(weight) and weight > 0 do
+  def add_node(ring, node, weight \\ 128)
+  def add_node(_, node, _weight) when is_binary(node) and byte_size(node) == 0,
+    do: raise ArgumentError, message: "Node keys cannot be empty strings"
+  def add_node(%__MODULE__{} = ring, node, weight) when is_integer(weight) and weight > 0 do
     cond do
       Enum.member?(ring.nodes, node) ->
         ring

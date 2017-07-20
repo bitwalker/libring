@@ -56,9 +56,9 @@ defmodule HashRing.Managed do
       "b"
 
       iex> {:ok, pid} = HashRing.Managed.new(:test2)
-      ...> {:error, {:already_started, pid}} == HashRing.Managed.new(:test2)
+      ...> {:error, {:already_started, existing_pid}} = HashRing.Managed.new(:test2)
+      ...> pid == existing_pid
       true
-
       iex> HashRing.Managed.new(:test3, [nodes: "a"])
       ** (ArgumentError) {:nodes, "a"} is an invalid option for `HashRing.Managed.new/2`
   """
