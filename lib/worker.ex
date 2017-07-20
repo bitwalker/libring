@@ -2,6 +2,7 @@ defmodule HashRing.Worker do
   @moduledoc false
   use GenServer
 
+  def nodes(name),                  do: do_call(name, :list_nodes)
   def add_node(name, node),         do: do_call(name, {:add_node, node})
   def add_node(name, node, weight), do: do_call(name, {:add_node, node, weight})
   def add_nodes(name, nodes),       do: do_call(name, {:add_nodes, nodes})
@@ -10,12 +11,10 @@ defmodule HashRing.Worker do
   def delete(name),                 do: do_call(name, :delete)
 
   defp do_call(name, msg) do
-    try do
-      GenServer.call(name, msg)
-    catch
-      :exit, {:noproc, _} ->
-        {:error, :no_such_ring}
-    end
+    GenServer.call(name, msg)
+  catch
+    :exit, {:noproc, _} ->
+      {:error, :no_such_ring}
   end
 
   def start_link(options) do
@@ -49,6 +48,9 @@ defmodule HashRing.Worker do
     end
   end
 
+  def handle_call(:list_nodes, _from, {ring, _, _} = state) do
+    {:reply, HashRing.nodes(ring), state}
+  end
   def handle_call({:add_node, node}, _from, {ring, b, w}) do
     {:reply, :ok, {HashRing.add_node(ring, node), b, w}}
   end
@@ -70,11 +72,10 @@ defmodule HashRing.Worker do
   end
 
   def handle_info({:nodeup, node, _info}, {ring, b, w} = state) do
-    cond do
-      HashRing.Utils.ignore_node?(node, b, w) ->
-        {:noreply, state}
-      :else ->
-        {:noreply, {HashRing.add_node(ring, node), b, w}}
+    if HashRing.Utils.ignore_node?(node, b, w) do
+      {:noreply, state}
+    else
+      {:noreply, {HashRing.add_node(ring, node), b, w}}
     end
   end
   def handle_info({:nodedown, node, _info}, {ring, b, w}) do

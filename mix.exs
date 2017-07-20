@@ -3,7 +3,7 @@ defmodule HashRing.Mixfile do
 
   def project do
     [app: :libring,
-     version: "1.0.2",
+     version: "1.2.1",
      elixir: "~> 1.3",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
@@ -17,7 +17,7 @@ defmodule HashRing.Mixfile do
   end
 
   def application do
-    [applications: [:logger, :crypto],
+    [applications: [:crypto],
      mod: {HashRing.App, []}]
   end
 
