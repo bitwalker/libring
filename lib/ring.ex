@@ -187,6 +187,54 @@ defmodule HashRing do
         node
     end
   end
+
+  @doc """
+  Determines which nodes owns a given key. Will return either `count` results or
+  the number of nodes, depending on which is smaller.
+  This function assumes that the ring has been populated with at least one node.
+
+  ## Examples
+
+  iex> ring = HashRing.new()
+  ...> ring = HashRing.add_node(ring, "a")
+  ...> ring = HashRing.add_node(ring, "b")
+  ...> ring = HashRing.add_node(ring, "c")
+  ...> HashRing.key_to_nodes(ring, :foo, 2)
+  ["b", "c"]
+
+  iex> ring = HashRing.new()
+  ...> HashRing.key_to_nodes(ring, :foo, 1)
+  {:error, {:invalid_ring, :no_nodes}}
+  """
+  @spec key_to_nodes(__MODULE__.t, term, pos_integer) :: [node()] | {:error, {:invalid_ring, :no_nodes}}
+  def key_to_nodes(%__MODULE__{nodes: []}, _key, _count),
+    do: {:error, {:invalid_ring, :no_nodes}}
+  def key_to_nodes(%__MODULE__{nodes: nodes, ring: r}, key, count) do
+    hash = :erlang.phash2(key, @hash_range)
+    count = min(length(nodes), count)
+    case :gb_trees.iterator_from(hash, r) do
+      [{_key, node, _, _} | _] = iter ->
+        find_nodes_from_iter(iter, count - 1, [node])
+      _ ->
+        {_key, node} = :gb_trees.smallest(r)
+        [node]
+    end
+  end
+
+  defp find_nodes_from_iter(_iter, 0, results), do: Enum.reverse(results)
+  defp find_nodes_from_iter(iter, count, results) do
+    case :gb_trees.next(iter) do
+      {_key, node, iter} ->
+        if node in results do
+          find_nodes_from_iter(iter, count, results)
+        else
+          [node | results]
+          find_nodes_from_iter(iter, count - 1, [node | results])
+        end
+      _ ->
+        results
+    end
+  end
 end
 
 defimpl Inspect, for: HashRing do

@@ -12,6 +12,16 @@ defmodule HashRingTest do
     end
   end
 
+  test "key_to_nodes/3 uses node length if the count is greater than node length" do
+    nodes =
+    HashRing.new()
+    |> HashRing.add_node("foo")
+    |> HashRing.add_node("bar")
+    |> HashRing.key_to_nodes(123, 150)
+
+    assert length(nodes) == 2
+  end
+
   property "adding one node leaves us with a tree with one node" do
     forall name <- string() do
       implies String.length(name) > 0 do
@@ -50,6 +60,29 @@ defmodule HashRingTest do
       groups =
         :ets.tab2list(tab)
         |> Enum.group_by(fn {_, n} -> n end, fn {k, _} -> k end)
+      distribution =
+        groups
+        |> Enum.map(fn {_node, values} -> length(values) end)
+      # If the standard deviation is within .05 percent of the sample size,
+      # that's good enough - we're not looking for perfectly uniform distribution
+      deviation = (10_000 - std_dev(distribution)) / 10_000
+      deviation >= 0.95
+    end
+  end
+
+  property "distribution of keys is uniformly distributed when retrieving multiples" do
+    forall ring <- hash_ring() do
+      tab = :ets.new(:ring, [:set, keypos: 1])
+      for i <- 1..10_000 do
+        :ets.insert(tab, {i, HashRing.key_to_nodes(ring, i, 10)})
+      end
+      results = :ets.tab2list(tab)
+      groups =
+        Enum.reduce(results, %{}, fn {key, vals}, acc ->
+          Enum.reduce(vals, acc, fn (val, acc2) ->
+            Map.update(acc2, val, [key], &([key | &1]))
+          end)
+        end)
       distribution =
         groups
         |> Enum.map(fn {_node, values} -> length(values) end)
