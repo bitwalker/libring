@@ -38,7 +38,7 @@ defmodule HashRing.Utils do
         end
     end)
   end
-  def ignore_node?(node, _blacklist, whitelist) when is_binary(node) and is_list(whitelist) do
+  def ignore_node?(node, [], whitelist) when is_binary(node) and is_list(whitelist) do
     Enum.any?(whitelist, fn
       ^node ->
         false
@@ -54,5 +54,25 @@ defmodule HashRing.Utils do
         end
     end)
   end
-
+  def ignore_node?(node, blacklist, whitelist) when is_list(whitelist) and is_list(blacklist) do
+    # Criteria for ignoring nodes when both blacklisting and whitelisting is active
+    blacklisted? =
+      ignore_node?(node, blacklist, [])
+    whitelisted? =
+      not ignore_node?(node, [], whitelist)
+    cond do
+      # If it is blacklisted and also whitelisted, then do not ignore
+      blacklisted? and whitelisted? ->
+        false
+      # If it is blacklisted and not also whitelisted, then ignore
+      blacklisted? ->
+        true
+      # If it is not blacklisted and is whitelisted, then do not ignore
+      whitelisted? ->
+        false
+      # If it is not blacklisted and not whitelisted, then ignore
+      :else ->
+        true
+    end
+  end
 end
