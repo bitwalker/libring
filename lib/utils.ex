@@ -39,7 +39,7 @@ defmodule HashRing.Utils do
     end)
   end
   def ignore_node?(node, [], whitelist) when is_binary(node) and is_list(whitelist) do
-    Enum.any?(whitelist, fn
+    Enum.all?(whitelist, fn
       ^node ->
         false
       %Regex{} = pattern ->
