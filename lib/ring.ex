@@ -177,6 +177,9 @@ defmodule HashRing do
   @spec key_to_node(__MODULE__.t, term) :: node() | {:error, {:invalid_ring, :no_nodes}}
   def key_to_node(%__MODULE__{nodes: []}, _key),
     do: {:error, {:invalid_ring, :no_nodes}}
+  # Convert atoms to binaries, as phash does not distribute them evenly
+  def key_to_node(ring, key) when is_atom(key),
+    do: key_to_node(ring, :erlang.term_to_binary(key))
   def key_to_node(%__MODULE__{ring: r}, key) do
     hash = :erlang.phash2(key, @hash_range)
     case :gb_trees.iterator_from(hash, r) do
