@@ -2,18 +2,26 @@ defmodule HashRing.Mixfile do
   use Mix.Project
 
   def project do
-    [app: :libring,
-     version: "1.3.1",
-     elixir: "~> 1.3",
-     build_embedded: Mix.env == :prod,
-     start_permanent: Mix.env == :prod,
-     description: "A fast consistent hash ring implementation in Elixir",
-     package: package(),
-     docs: docs(),
-     deps: deps(),
-     dialyzer: [
-       flags: ~w(-Wunmatched_returns -Werror_handling -Wrace_conditions -Wno_opaque -Wunderspecs)
-     ]]
+    [
+      app: :libring,
+      version: "1.3.2",
+      elixir: "~> 1.3",
+      build_embedded: Mix.env == :prod,
+      start_permanent: Mix.env == :prod,
+      description: "A fast consistent hash ring implementation in Elixir",
+      package: package(),
+      docs: docs(),
+      deps: deps(),
+      dialyzer: [
+        flags: ~w(-Wunmatched_returns -Werror_handling -Wrace_conditions -Wno_opaque -Wunderspecs)
+      ],
+      preferred_cli_env: [
+        docs: :docs,
+        "hex.publish": :docs,
+        dialyzer: :test,
+        "eqc.mini": :test
+      ]
+    ]
   end
 
   def application do
