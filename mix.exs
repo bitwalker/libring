@@ -23,10 +23,10 @@ defmodule HashRing.Mixfile do
 
   defp deps do
     [
-     {:ex_doc, "~> 0.13", only: :dev},
-     {:benchee, "~> 0.4", only: :dev},
-     {:dialyxir, "~> 0.3", only: :dev},
-     {:eqc_ex, "~> 1.4", only: [:dev, :test]},
+     {:ex_doc, "~> 0.13", only: [:docs]},
+     {:benchee, "~> 0.4", only: [:dev]},
+     {:dialyxir, "~> 0.3", only: [:test]},
+     {:eqc_ex, "~> 1.4", only: [:test]},
      # Uncomment the following for benchmarks
      # {:hash_ring, github: "voicelayer/hash-ring", only: :dev},
      # {:hash_ring, ">= 0.0.0", only: :dev},
