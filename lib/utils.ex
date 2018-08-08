@@ -39,18 +39,18 @@ defmodule HashRing.Utils do
     end)
   end
   def ignore_node?(node, [], whitelist) when is_binary(node) and is_list(whitelist) do
-    Enum.any?(whitelist, fn
+    not Enum.any?(whitelist, fn
       ^node ->
-        false
+        true
       %Regex{} = pattern ->
-        not Regex.match?(pattern, node)
+        Regex.match?(pattern, node)
       pattern when is_binary(pattern) ->
         case Regex.compile(pattern) do
           {:ok, rx} ->
-            not Regex.match?(rx, node)
+            Regex.match?(rx, node)
           {:error, reason} ->
             :ok = Logger.warn "[libring] ignore_node?/3: invalid whitelist pattern (#{inspect pattern}): #{inspect reason}"
-            true
+            false 
         end
     end)
   end
