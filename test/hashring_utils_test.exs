@@ -1,7 +1,7 @@
-defmodule HashRingUtilsTest do
+defmodule ConsistentHashRingUtilsTest do
   use ExUnit.Case, async: true
-  doctest HashRing.Utils
-  alias HashRing.Utils
+  doctest ConsistentHashRing.Utils
+  alias ConsistentHashRing.Utils
 
   test "ignore_node?/3 with blacklist" do
     blacklist = [

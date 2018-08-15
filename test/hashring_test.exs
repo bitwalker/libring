@@ -1,23 +1,23 @@
-defmodule HashRingTest do
+defmodule ConsistentHashRingTest do
   use ExUnit.Case, async: true
   use EQC.ExUnit
-  doctest HashRing
+  doctest ConsistentHashRing
   use EQC.ExUnit
 
   def string, do: utf8()
 
   test "binary names without a length are rejected" do
     assert_raise ArgumentError, fn ->
-      HashRing.new("")
+      ConsistentHashRing.new("")
     end
   end
 
   test "key_to_nodes/3 uses node length if the count is greater than node length" do
     nodes =
-    HashRing.new()
-    |> HashRing.add_node("foo")
-    |> HashRing.add_node("bar")
-    |> HashRing.key_to_nodes(123, 150)
+    ConsistentHashRing.new()
+    |> ConsistentHashRing.add_node("foo")
+    |> ConsistentHashRing.add_node("bar")
+    |> ConsistentHashRing.key_to_nodes(123, 150)
 
     assert length(nodes) == 2
   end
@@ -25,7 +25,7 @@ defmodule HashRingTest do
   property "adding one node leaves us with a tree with one node" do
     forall name <- string() do
       implies String.length(name) > 0 do
-        %HashRing{nodes: nodes} = HashRing.new(name)
+        %ConsistentHashRing{nodes: nodes} = ConsistentHashRing.new(name)
         ensure length(nodes) == 1
       end
     end
@@ -34,7 +34,7 @@ defmodule HashRingTest do
   property "adding one node with a weight works" do
     forall {name, weight} <- {string(), int()} do
       implies weight > 0 and String.length(name) > 0 do
-        %HashRing{nodes: nodes} = HashRing.new(name)
+        %ConsistentHashRing{nodes: nodes} = ConsistentHashRing.new(name)
         ensure length(nodes) == 1
       end
     end
@@ -43,8 +43,8 @@ defmodule HashRingTest do
   property "adding one node and removing it leaves us with an empty ring" do
     forall name <- string() do
       implies String.length(name) > 0 do
-        ring = HashRing.new(name)
-        %HashRing{nodes: nodes} = HashRing.remove_node(ring, name)
+        ring = ConsistentHashRing.new(name)
+        %ConsistentHashRing{nodes: nodes} = ConsistentHashRing.remove_node(ring, name)
         ensure length(nodes) == 0
       end
     end
@@ -55,7 +55,7 @@ defmodule HashRingTest do
     forall ring <- hash_ring() do
       tab = :ets.new(:ring, [:set, keypos: 1])
       for i <- 1..10_000 do
-        :ets.insert(tab, {i, HashRing.key_to_node(ring, i)})
+        :ets.insert(tab, {i, ConsistentHashRing.key_to_node(ring, i)})
       end
       groups =
         :ets.tab2list(tab)
@@ -74,7 +74,7 @@ defmodule HashRingTest do
     forall ring <- hash_ring() do
       tab = :ets.new(:ring, [:set, keypos: 1])
       for i <- 1..10_000 do
-        :ets.insert(tab, {i, HashRing.key_to_nodes(ring, i, 10)})
+        :ets.insert(tab, {i, ConsistentHashRing.key_to_nodes(ring, i, 10)})
       end
       results = :ets.tab2list(tab)
       groups =
@@ -101,9 +101,9 @@ defmodule HashRingTest do
   end
 
   def hash_ring() do
-    sized s, do: sized_hash_ring(s, HashRing.new)
+    sized s, do: sized_hash_ring(s, ConsistentHashRing.new)
   end
   defp sized_hash_ring(i, r) do
-    Enum.reduce(0..(i+1), r, fn n, r -> HashRing.add_node(r, n) end)
+    Enum.reduce(0..(i+1), r, fn n, r -> ConsistentHashRing.add_node(r, n) end)
   end
 end

@@ -1,4 +1,4 @@
-defmodule HashRing do
+defmodule ConsistentHashRing do
   @moduledoc """
   This module defines an API for creating/manipulating a hash ring.
   The internal datastructure for the hash ring is actually a gb_tree, which provides
@@ -29,9 +29,9 @@ defmodule HashRing do
 
   ## Examples
 
-      iex> ring = HashRing.new()
-      ...> %HashRing{nodes: ["a"]} = ring = HashRing.add_node(ring, "a")
-      ...> HashRing.key_to_node(ring, {:complex, "key"})
+      iex> ring = ConsistentHashRing.new()
+      ...> %ConsistentHashRing{nodes: ["a"]} = ring = ConsistentHashRing.add_node(ring, "a")
+      ...> ConsistentHashRing.key_to_node(ring, {:complex, "key"})
       "a"
   """
   @spec new() :: __MODULE__.t
@@ -46,14 +46,14 @@ defmodule HashRing do
 
   ## Examples
 
-      iex> ring = HashRing.new("a")
-      ...> %HashRing{nodes: ["a"]} = ring
-      ...> HashRing.key_to_node(ring, :foo)
+      iex> ring = ConsistentHashRing.new("a")
+      ...> %ConsistentHashRing{nodes: ["a"]} = ring
+      ...> ConsistentHashRing.key_to_node(ring, :foo)
       "a"
 
-      iex> ring = HashRing.new("a", 200)
-      ...> %HashRing{nodes: ["a"]} = ring
-      ...> HashRing.key_to_node(ring, :foo)
+      iex> ring = ConsistentHashRing.new("a", 200)
+      ...> %ConsistentHashRing{nodes: ["a"]} = ring
+      ...> ConsistentHashRing.key_to_node(ring, :foo)
       "a"
   """
   @spec new(node(), pos_integer) :: __MODULE__.t
@@ -68,8 +68,8 @@ defmodule HashRing do
   if you were using atoms, such as those used for Erlang node names, you would get
   a list of atoms back.
 
-      iex> ring = HashRing.new |> HashRing.add_nodes(["a", "b"])
-      ...> HashRing.nodes(ring)
+      iex> ring = ConsistentHashRing.new |> ConsistentHashRing.add_nodes(["a", "b"])
+      ...> ConsistentHashRing.nodes(ring)
       ["b", "a"]
   """
   @spec nodes(t) :: [term]
@@ -84,10 +84,10 @@ defmodule HashRing do
 
   ## Examples
 
-      iex> ring = HashRing.new()
-      ...> ring = HashRing.add_node(ring, "a")
-      ...> %HashRing{nodes: ["b", "a"]} = ring = HashRing.add_node(ring, "b", 64)
-      ...> HashRing.key_to_node(ring, :foo)
+      iex> ring = ConsistentHashRing.new()
+      ...> ring = ConsistentHashRing.add_node(ring, "a")
+      ...> %ConsistentHashRing{nodes: ["b", "a"]} = ring = ConsistentHashRing.add_node(ring, "b", 64)
+      ...> ConsistentHashRing.key_to_node(ring, :foo)
       "b"
   """
   @spec add_node(__MODULE__.t, term(), pos_integer) :: __MODULE__.t
@@ -120,10 +120,10 @@ defmodule HashRing do
 
   ## Examples
 
-      iex> ring = HashRing.new()
-      ...> ring = HashRing.add_nodes(ring, ["a", {"b", 64}])
-      ...> %HashRing{nodes: ["b", "a"]} = ring
-      ...> HashRing.key_to_node(ring, :foo)
+      iex> ring = ConsistentHashRing.new()
+      ...> ring = ConsistentHashRing.add_nodes(ring, ["a", {"b", 64}])
+      ...> %ConsistentHashRing{nodes: ["b", "a"]} = ring
+      ...> ConsistentHashRing.key_to_node(ring, :foo)
       "b"
   """
   @spec add_nodes(__MODULE__.t, [term() | {term(), pos_integer}]) :: __MODULE__.t
@@ -141,10 +141,10 @@ defmodule HashRing do
 
   ## Examples
 
-      iex> ring = HashRing.new()
-      ...> %HashRing{nodes: ["a"]} = ring = HashRing.add_node(ring, "a")
-      ...> %HashRing{nodes: []} = ring = HashRing.remove_node(ring, "a")
-      ...> HashRing.key_to_node(ring, :foo)
+      iex> ring = ConsistentHashRing.new()
+      ...> %ConsistentHashRing{nodes: ["a"]} = ring = ConsistentHashRing.add_node(ring, "a")
+      ...> %ConsistentHashRing{nodes: []} = ring = ConsistentHashRing.remove_node(ring, "a")
+      ...> ConsistentHashRing.key_to_node(ring, :foo)
       {:error, {:invalid_ring, :no_nodes}}
   """
   @spec remove_node(__MODULE__.t, node()) :: __MODULE__.t
@@ -166,12 +166,12 @@ defmodule HashRing do
 
   ## Examples
 
-      iex> ring = HashRing.new("a")
-      ...> HashRing.key_to_node(ring, :foo)
+      iex> ring = ConsistentHashRing.new("a")
+      ...> ConsistentHashRing.key_to_node(ring, :foo)
       "a"
 
-      iex> ring = HashRing.new()
-      ...> HashRing.key_to_node(ring, :foo)
+      iex> ring = ConsistentHashRing.new()
+      ...> ConsistentHashRing.key_to_node(ring, :foo)
       {:error, {:invalid_ring, :no_nodes}}
   """
   @spec key_to_node(__MODULE__.t, term) :: node() | {:error, {:invalid_ring, :no_nodes}}
@@ -198,15 +198,15 @@ defmodule HashRing do
 
   ## Examples
 
-  iex> ring = HashRing.new()
-  ...> ring = HashRing.add_node(ring, "a")
-  ...> ring = HashRing.add_node(ring, "b")
-  ...> ring = HashRing.add_node(ring, "c")
-  ...> HashRing.key_to_nodes(ring, :foo, 2)
+  iex> ring = ConsistentHashRing.new()
+  ...> ring = ConsistentHashRing.add_node(ring, "a")
+  ...> ring = ConsistentHashRing.add_node(ring, "b")
+  ...> ring = ConsistentHashRing.add_node(ring, "c")
+  ...> ConsistentHashRing.key_to_nodes(ring, :foo, 2)
   ["b", "c"]
 
-  iex> ring = HashRing.new()
-  ...> HashRing.key_to_nodes(ring, :foo, 1)
+  iex> ring = ConsistentHashRing.new()
+  ...> ConsistentHashRing.key_to_nodes(ring, :foo, 1)
   {:error, {:invalid_ring, :no_nodes}}
   """
   @spec key_to_nodes(__MODULE__.t, term, pos_integer) :: [node()] | {:error, {:invalid_ring, :no_nodes}}
@@ -240,8 +240,8 @@ defmodule HashRing do
   end
 end
 
-defimpl Inspect, for: HashRing do
-  def inspect(%HashRing{ring: ring}, _opts) do
+defimpl Inspect, for: ConsistentHashRing do
+  def inspect(%ConsistentHashRing{ring: ring}, _opts) do
     nodes = Enum.uniq(Enum.map(:gb_trees.to_list(ring), fn {_, n} -> n end))
     "#<Ring#{Kernel.inspect nodes}>"
   end

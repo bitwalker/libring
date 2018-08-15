@@ -1,4 +1,4 @@
-defmodule HashRing.Managed do
+defmodule ConsistentHashRing.Managed do
   @moduledoc """
   This module defines the API for working with hash rings where the ring state is managed
   in a GenServer process.
@@ -51,16 +51,16 @@ defmodule HashRing.Managed do
 
   ## Examples
 
-      iex> {:ok, _pid} = HashRing.Managed.new(:test1, [nodes: ["a", {"b", 64}]])
-      ...> HashRing.Managed.key_to_node(:test1, :foo)
+      iex> {:ok, _pid} = ConsistentHashRing.Managed.new(:test1, [nodes: ["a", {"b", 64}]])
+      ...> ConsistentHashRing.Managed.key_to_node(:test1, :foo)
       "b"
 
-      iex> {:ok, pid} = HashRing.Managed.new(:test2)
-      ...> {:error, {:already_started, existing_pid}} = HashRing.Managed.new(:test2)
+      iex> {:ok, pid} = ConsistentHashRing.Managed.new(:test2)
+      ...> {:error, {:already_started, existing_pid}} = ConsistentHashRing.Managed.new(:test2)
       ...> pid == existing_pid
       true
-      iex> HashRing.Managed.new(:test3, [nodes: "a"])
-      ** (ArgumentError) {:nodes, "a"} is an invalid option for `HashRing.Managed.new/2`
+      iex> ConsistentHashRing.Managed.new(:test3, [nodes: "a"])
+      ** (ArgumentError) {:nodes, "a"} is an invalid option for `ConsistentHashRing.Managed.new/2`
   """
   @spec new(ring) :: {:ok, pid} | {:error, {:already_started, pid}}
   @spec new(ring, ring_options) :: {:ok, pid} | {:error, {:already_started, pid}} | {:error, {:invalid_option, term}}
@@ -81,28 +81,28 @@ defmodule HashRing.Managed do
       nil ->
         case Process.whereis(:"libring_#{name}") do
           nil ->
-            Supervisor.start_child(HashRing.Supervisor, [opts])
+            Supervisor.start_child(ConsistentHashRing.Supervisor, [opts])
           pid ->
             {:error, {:already_started, pid}}
         end
       _ ->
-        raise ArgumentError, message: "#{inspect invalid} is an invalid option for `HashRing.Managed.new/2`"
+        raise ArgumentError, message: "#{inspect invalid} is an invalid option for `ConsistentHashRing.Managed.new/2`"
     end
   end
 
   @doc """
-  Same as `HashRing.nodes/1`, returns a list of nodes on the ring.
+  Same as `ConsistentHashRing.nodes/1`, returns a list of nodes on the ring.
 
   ## Examples
 
-      iex> {:ok, _pid} = HashRing.Managed.new(:nodes_test)
-      ...> HashRing.Managed.add_nodes(:nodes_test, [:a, :b])
-      ...> HashRing.Managed.nodes(:nodes_test)
+      iex> {:ok, _pid} = ConsistentHashRing.Managed.new(:nodes_test)
+      ...> ConsistentHashRing.Managed.add_nodes(:nodes_test, [:a, :b])
+      ...> ConsistentHashRing.Managed.nodes(:nodes_test)
       [:b, :a]
   """
   @spec nodes(ring) :: [term()]
   def nodes(ring) do
-    HashRing.Worker.nodes(ring)
+    ConsistentHashRing.Worker.nodes(ring)
   end
 
   @doc """
@@ -112,17 +112,17 @@ defmodule HashRing.Managed do
 
   ## Examples
 
-      iex> {:ok, _pid} = HashRing.Managed.new(:test4)
-      ...> HashRing.Managed.add_node(:test4, "a")
-      ...> HashRing.Managed.key_to_node(:test4, :foo)
+      iex> {:ok, _pid} = ConsistentHashRing.Managed.new(:test4)
+      ...> ConsistentHashRing.Managed.add_node(:test4, "a")
+      ...> ConsistentHashRing.Managed.key_to_node(:test4, :foo)
       "a"
 
-      iex> HashRing.Managed.add_node(:no_exist, "a")
+      iex> ConsistentHashRing.Managed.add_node(:no_exist, "a")
       {:error, :no_such_ring}
   """
   @spec add_node(ring, key) :: :ok | {:error, :no_such_ring}
   def add_node(ring, node) when is_atom(ring) do
-    HashRing.Worker.add_node(ring, node)
+    ConsistentHashRing.Worker.add_node(ring, node)
   end
 
   @doc """
@@ -136,12 +136,12 @@ defmodule HashRing.Managed do
 
   ## Examples
 
-      iex> {:ok, _pid} = HashRing.Managed.new(:test5)
-      ...> HashRing.Managed.add_node(:test5, "a", 64)
-      ...> HashRing.Managed.key_to_node(:test5, :foo)
+      iex> {:ok, _pid} = ConsistentHashRing.Managed.new(:test5)
+      ...> ConsistentHashRing.Managed.add_node(:test5, "a", 64)
+      ...> ConsistentHashRing.Managed.key_to_node(:test5, :foo)
       "a"
 
-      iex> HashRing.Managed.add_node(:no_exist, "a")
+      iex> ConsistentHashRing.Managed.add_node(:no_exist, "a")
       {:error, :no_such_ring}
   """
   @spec add_node(ring, key, weight) :: :ok |
@@ -150,7 +150,7 @@ defmodule HashRing.Managed do
   def add_node(ring, node, weight) when is_atom(ring)
     and is_integer(weight)
     and weight > 0 do
-    HashRing.Worker.add_node(ring, node, weight)
+    ConsistentHashRing.Worker.add_node(ring, node, weight)
   end
   def add_node(ring, node, weight) when is_atom(ring) do
     {:error, {:invalid_weight, node, weight}}
@@ -165,13 +165,13 @@ defmodule HashRing.Managed do
 
   ## Examples
 
-      iex> {:ok, _pid} = HashRing.Managed.new(:test6)
-      ...> :ok = HashRing.Managed.add_nodes(:test6, ["a", {"b", 64}])
-      ...> HashRing.Managed.key_to_node(:test6, :foo)
+      iex> {:ok, _pid} = ConsistentHashRing.Managed.new(:test6)
+      ...> :ok = ConsistentHashRing.Managed.add_nodes(:test6, ["a", {"b", 64}])
+      ...> ConsistentHashRing.Managed.key_to_node(:test6, :foo)
       "b"
 
-      iex> {:ok, _pid} = HashRing.Managed.new(:test7)
-      ...> HashRing.Managed.add_nodes(:test7, ["a", {"b", :wrong}])
+      iex> {:ok, _pid} = ConsistentHashRing.Managed.new(:test7)
+      ...> ConsistentHashRing.Managed.add_nodes(:test7, ["a", {"b", :wrong}])
       {:error, [{:invalid_weight, "b", :wrong}]}
   """
   @spec add_nodes(ring, node_list) :: :ok |
@@ -190,7 +190,7 @@ defmodule HashRing.Managed do
       end)
       case invalid do
         [] ->
-          HashRing.Worker.add_nodes(ring, nodes)
+          ConsistentHashRing.Worker.add_nodes(ring, nodes)
         _ ->
           {:error, Enum.map(invalid, fn {k,v} -> {:invalid_weight, k, v} end)}
       end
@@ -203,15 +203,15 @@ defmodule HashRing.Managed do
 
   ## Examples
 
-      iex> {:ok, _pid} = HashRing.Managed.new(:test8)
-      ...> :ok = HashRing.Managed.add_nodes(:test8, ["a", {"b", 64}])
-      ...> :ok = HashRing.Managed.remove_node(:test8, "b")
-      ...> HashRing.Managed.key_to_node(:test8, :foo)
+      iex> {:ok, _pid} = ConsistentHashRing.Managed.new(:test8)
+      ...> :ok = ConsistentHashRing.Managed.add_nodes(:test8, ["a", {"b", 64}])
+      ...> :ok = ConsistentHashRing.Managed.remove_node(:test8, "b")
+      ...> ConsistentHashRing.Managed.key_to_node(:test8, :foo)
       "a"
   """
   @spec remove_node(ring, key) :: :ok | {:error, :no_such_ring}
   def remove_node(ring, node) when is_atom(ring) do
-    HashRing.Worker.remove_node(ring, node)
+    ConsistentHashRing.Worker.remove_node(ring, node)
   end
 
   @doc """
@@ -223,6 +223,6 @@ defmodule HashRing.Managed do
     {:error, :no_such_ring} |
     {:error, {:invalid_ring, :no_nodes}}
   def key_to_node(ring, key) when is_atom(ring) do
-    HashRing.Worker.key_to_node(ring, key)
+    ConsistentHashRing.Worker.key_to_node(ring, key)
   end
 end

@@ -1,4 +1,4 @@
-defmodule HashRing.App do
+defmodule ConsistentHashRing.App do
   @moduledoc false
   use Application
   require Logger
@@ -8,17 +8,17 @@ defmodule HashRing.App do
 
     # Start the ring supervisor
     children = [
-      worker(HashRing.Worker, [], restart: :transient)
+      worker(ConsistentHashRing.Worker, [], restart: :transient)
     ]
-    {:ok, pid} = Supervisor.start_link(children, strategy: :simple_one_for_one, name: HashRing.Supervisor)
+    {:ok, pid} = Supervisor.start_link(children, strategy: :simple_one_for_one, name: ConsistentHashRing.Supervisor)
 
     # Add any preconfigured rings
     Enum.each(Application.get_env(:libring, :rings, []), fn
       {name, config} ->
-        {:ok, _pid} = HashRing.Managed.new(name, config)
+        {:ok, _pid} = ConsistentHashRing.Managed.new(name, config)
         Logger.info "[libring] started managed ring #{inspect name}"
       name when is_atom(name) ->
-        {:ok, _pid} = HashRing.Managed.new(name)
+        {:ok, _pid} = ConsistentHashRing.Managed.new(name)
         Logger.info "[libring] started managed ring #{inspect name}"
     end)
 

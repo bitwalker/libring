@@ -26,7 +26,7 @@ defmodule HashRing.Mixfile do
 
   def application do
     [applications: [:crypto],
-     mod: {HashRing.App, []}]
+     mod: {ConsistentHashRing.App, []}]
   end
 
   defp deps do

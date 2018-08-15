@@ -1,4 +1,4 @@
-defmodule HashRing.Utils do
+defmodule ConsistentHashRing.Utils do
   @moduledoc false
   require Logger
 
