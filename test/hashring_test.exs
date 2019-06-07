@@ -6,12 +6,6 @@ defmodule HashRingTest do
 
   def string, do: utf8()
 
-  test "binary names without a length are rejected" do
-    assert_raise ArgumentError, fn ->
-      HashRing.new("")
-    end
-  end
-
   test "key_to_nodes/3 uses node length if the count is greater than node length" do
     nodes =
     HashRing.new()
