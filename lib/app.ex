@@ -4,13 +4,15 @@ defmodule HashRing.App do
   require Logger
 
   def start(_type, _args) do
-    import Supervisor.Spec
-
     # Start the ring supervisor
-    children = [
-      worker(HashRing.Worker, [], restart: :transient)
-    ]
-    {:ok, pid} = Supervisor.start_link(children, strategy: :simple_one_for_one, name: HashRing.Supervisor)
+    {:ok, pid} = DynamicSupervisor.start_link(name: HashRing.Supervisor, strategy: :one_for_one)
+
+    spec = %{
+      id: HashRing.Worker,
+      start: {HashRing.Worker, :start_link, [[restart: :transient, name: HashRing.Worker]]}
+    }
+
+    DynamicSupervisor.start_child(HashRing.Supervisor, spec)
 
     # Add any preconfigured rings
     Enum.each(Application.get_env(:libring, :rings, []), fn
