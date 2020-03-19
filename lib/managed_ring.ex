@@ -81,7 +81,8 @@ defmodule HashRing.Managed do
       nil ->
         case Process.whereis(:"libring_#{name}") do
           nil ->
-            Supervisor.start_child(HashRing.Supervisor, [opts])
+            spec = {HashRing.Worker, opts}
+            DynamicSupervisor.start_child(HashRing.Supervisor, spec)
           pid ->
             {:error, {:already_started, pid}}
         end
