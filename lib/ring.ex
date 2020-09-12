@@ -56,7 +56,7 @@ defmodule HashRing do
       ...> HashRing.key_to_node(ring, :foo)
       "a"
   """
-  @spec new(node(), pos_integer) :: __MODULE__.t
+  @spec new(term(), pos_integer) :: __MODULE__.t
   def new(node, weight \\ 128) when is_integer(weight) and weight > 0,
     do: add_node(new(), node, weight)
 
@@ -147,7 +147,7 @@ defmodule HashRing do
       ...> HashRing.key_to_node(ring, :foo)
       {:error, {:invalid_ring, :no_nodes}}
   """
-  @spec remove_node(__MODULE__.t, node()) :: __MODULE__.t
+  @spec remove_node(__MODULE__.t, term()) :: __MODULE__.t
   def remove_node(%__MODULE__{ring: r} = ring, node) do
     cond do
       Enum.member?(ring.nodes, node) ->
@@ -174,7 +174,7 @@ defmodule HashRing do
       ...> HashRing.key_to_node(ring, :foo)
       {:error, {:invalid_ring, :no_nodes}}
   """
-  @spec key_to_node(__MODULE__.t, term) :: node() | {:error, {:invalid_ring, :no_nodes}}
+  @spec key_to_node(__MODULE__.t, term) :: term() | {:error, {:invalid_ring, :no_nodes}}
   def key_to_node(%__MODULE__{nodes: []}, _key),
     do: {:error, {:invalid_ring, :no_nodes}}
   # Convert atoms to binaries, as phash does not distribute them evenly
@@ -209,7 +209,7 @@ defmodule HashRing do
   ...> HashRing.key_to_nodes(ring, :foo, 1)
   {:error, {:invalid_ring, :no_nodes}}
   """
-  @spec key_to_nodes(__MODULE__.t, term, pos_integer) :: [node()] | {:error, {:invalid_ring, :no_nodes}}
+  @spec key_to_nodes(__MODULE__.t, term, pos_integer) :: [term()] | {:error, {:invalid_ring, :no_nodes}}
   def key_to_nodes(%__MODULE__{nodes: []}, _key, _count),
     do: {:error, {:invalid_ring, :no_nodes}}
   def key_to_nodes(%__MODULE__{nodes: nodes, ring: r}, key, count) do

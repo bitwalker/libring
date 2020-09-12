@@ -20,7 +20,7 @@ defmodule HashRing.Managed do
   @type ring         :: atom()
   @type key          :: any()
   @type weight       :: pos_integer
-  @type node_list    :: [node() | {node(), weight}]
+  @type node_list    :: [term() | {term(), weight}]
   @type pattern_list :: [String.t | Regex.t]
   @type ring_options :: [
     nodes: node_list,
