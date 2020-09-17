@@ -28,7 +28,7 @@ defmodule HashRing.Managed do
     node_blacklist: pattern_list,
     node_whitelist: pattern_list]
 
-  @valid_ring_opts [:name, :nodes, :monitor_nodes, :node_blacklist, :node_whitelist]
+  @valid_ring_opts [:name, :nodes, :monitor_nodes, :node_blacklist, :node_whitelist, :node_type]
 
   @doc """
   Creates a new stateful hash ring with the given name.
@@ -46,6 +46,8 @@ defmodule HashRing.Managed do
     is provided, the blacklist has no effect.
   - `node_whitelist: [String.t | Regex.t]`: The same as `node_blacklist`, except the opposite; only nodes
     which match a pattern in the whitelist will result in the ring being updated.
+  - `node_type: :all | :hidden | :visible`: refers what kind of nodes will be monitored
+    when `monitor_nodes` is `true`. For more information, see `:net_kernel.monitor_nodes/2`.
 
   An error is returned if the ring already exists or if bad ring options are provided.
 
@@ -74,6 +76,7 @@ defmodule HashRing.Managed do
           :monitor_nodes when is_boolean(value) -> false
           :node_blacklist when is_list(value) -> false
           :node_whitelist when is_list(value) -> false
+          :node_type when value in [:all, :hidden, :visible] -> false
           _ -> true
         end
     end)
