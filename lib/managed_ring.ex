@@ -8,7 +8,7 @@ defmodule HashRing.Managed do
 
   If your rings map 1:1 with Erlang node membership, you can configure rings to automatically
   monitor node up/down events and update the hash ring accordingly, with a default weight,
-  and either whitelist or blacklist nodes from the ring. You configure this at the ring level in your `config.exs`
+  and either whitelist or blacklist nodes from the ring. You configure this at the ring level in your `config.exs`.
 
   Each ring is configured in `config.exs`, and can contain a list of nodes to seed the ring with,
   and you can then dynamically add/remove nodes to the ring using the API here. Each node on the ring can
@@ -32,19 +32,20 @@ defmodule HashRing.Managed do
 
   @doc """
   Creates a new stateful hash ring with the given name.
+
   This name is how you will refer to the hash ring via other API calls.
 
   It takes an optional set of options which control how the ring behaves.
   Valid options are as follows:
 
-  - `monitor_nodes: boolean`: will automatically monitor Erlang node membership,
+  * `monitor_nodes: boolean` - will automatically monitor Erlang node membership,
     if new nodes are connected or nodes are disconnected, the ring will be updated automatically.
     In this configuration, nodes cannot be added or removed via the API. Those requests will be ignored.
-  - `node_blacklist: [String.t | Regex.t]`: Used in conjunction with `monitor_nodes: true`, this
+  * `node_blacklist: [String.t | Regex.t]` - Used in conjunction with `monitor_nodes: true`, this
     is a list of patterns, either as literal strings, or as regex patterns (in either string or literal form),
     and will be used to ignore nodeup/down events for nodes which are blacklisted. If a node whitelist
     is provided, the blacklist has no effect.
-  - `node_whitelist: [String.t | Regex.t]`: The same as `node_blacklist`, except the opposite; only nodes
+  * `node_whitelist: [String.t | Regex.t]` - The same as `node_blacklist`, except the opposite; only nodes
     which match a pattern in the whitelist will result in the ring being updated.
 
   An error is returned if the ring already exists or if bad ring options are provided.
@@ -61,6 +62,7 @@ defmodule HashRing.Managed do
       true
       iex> HashRing.Managed.new(:test3, [nodes: "a"])
       ** (ArgumentError) {:nodes, "a"} is an invalid option for `HashRing.Managed.new/2`
+
   """
   @spec new(ring) :: {:ok, pid} | {:error, {:already_started, pid}}
   @spec new(ring, ring_options) :: {:ok, pid} | {:error, {:already_started, pid}} | {:error, {:invalid_option, term}}
@@ -129,9 +131,9 @@ defmodule HashRing.Managed do
   Same as `add_node/2`, but takes a weight value.
 
   The weight controls the relative presence this node will have on the ring,
-  the default is 128, but it's best to give each node a weight value which maps
+  the default is `128`, but it's best to give each node a weight value which maps
   to a concrete resource such as memory or priority. It's not ideal to have a number
-  which is too high, as it will make the ring datastructure larger, but a good value
+  which is too high, as it will make the ring data structure larger, but a good value
   is probably in the range of 64-256.
 
   ## Examples
@@ -143,6 +145,7 @@ defmodule HashRing.Managed do
 
       iex> HashRing.Managed.add_node(:no_exist, "a")
       {:error, :no_such_ring}
+
   """
   @spec add_node(ring, key, weight) :: :ok |
     {:error, :no_such_ring} |
@@ -173,6 +176,7 @@ defmodule HashRing.Managed do
       iex> {:ok, _pid} = HashRing.Managed.new(:test7)
       ...> HashRing.Managed.add_nodes(:test7, ["a", {"b", :wrong}])
       {:error, [{:invalid_weight, "b", :wrong}]}
+
   """
   @spec add_nodes(ring, node_list) :: :ok |
     {:error, :no_such_ring} |
@@ -208,6 +212,7 @@ defmodule HashRing.Managed do
       ...> :ok = HashRing.Managed.remove_node(:test8, "b")
       ...> HashRing.Managed.key_to_node(:test8, :foo)
       "a"
+
   """
   @spec remove_node(ring, key) :: :ok | {:error, :no_such_ring}
   def remove_node(ring, node) when is_atom(ring) do

@@ -50,7 +50,7 @@ defmodule HashRing.Utils do
             Regex.match?(rx, node)
           {:error, reason} ->
             :ok = Logger.warn "[libring] ignore_node?/3: invalid whitelist pattern (#{inspect pattern}): #{inspect reason}"
-            false 
+            false
         end
     end)
   end
