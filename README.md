@@ -1,11 +1,15 @@
 # libring - A fast consistent hash ring for Elixir
 
-[![Hex.pm Version](http://img.shields.io/hexpm/v/libring.svg?style=flat)](https://hex.pm/packages/libring)
+[![Module Version](https://img.shields.io/hexpm/v/libring.svg)](https://hex.pm/packages/libring)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/libring/)
+[![Total Download](https://img.shields.io/hexpm/dt/libring.svg)](https://hex.pm/packages/libring)
+[![License](https://img.shields.io/hexpm/l/libring.svg)](https://github.com/bitwalker/libring/blob/master/LICENSE)
+[![Last Updated](https://img.shields.io/github/last-commit/bitwalker/libring.svg)](https://github.com/bitwalker/libring/commits/master)
 
 This library implements a stateful consistent hash ring. It's extremely fast
 (in benchmarks it's faster than all other implementations I've tested against,
-namely [voicelayer/hash-ring](https://github.com/voicelayer/hash-ring) and 
-[sile/hash_ring](https://github.com/sile/hash_ring)), it has no external dependencies, 
+namely [voicelayer/hash-ring](https://github.com/voicelayer/hash-ring) and
+[sile/hash_ring](https://github.com/sile/hash_ring)), it has no external dependencies,
 and is written in Elixir.
 
 The algorithm is based on [libketama](https://github.com/rj/ketama). Nodes on the
@@ -13,7 +17,7 @@ ring are broken into shards and each one is assigned an integer value in the key
 is the set of integers from 1 to 2^32-1. The distribution of these shards is random, but
 deterministic.
 
-Keys are then mapped to a shard by converting the key to a binary, hashing it with SHA-256, 
+Keys are then mapped to a shard by converting the key to a binary, hashing it with SHA-256,
 converting the hash to an integer in the keyspace, then finding the shard which is assigned
 the next highest value, if there is no next highest value, the lowest integer is used, which
 is how the "ring" is formed.
@@ -29,15 +33,17 @@ Add `:libring` to your deps, and run `mix deps.get`.
 
 ```elixir
 def deps do
-  [{:libring, "~> 1.0"}]
+  [
+    {:libring, "~> 1.0"}
+  ]
 end
 ```
 
 You have two choices for managing hash rings in your application:
 
-## HashRing
+### `HashRing`
 
-This API works with the raw ring datastructure. It is the fastest implementation,
+This API works with the raw ring data structure. It is the fastest implementation,
 and is best suited for when you have a single process which will need to access the
 ring, and which can hold the ring in it's internal state.
 
@@ -60,7 +66,7 @@ ring = HashRing.new()
 
 **NOTE**: Node names do not have to be strings, they can be atoms, tuples, etc.
 
-## HashRing.Managed
+### `HashRing.Managed`
 
 This API works with rings which are held in the internal state of a GenServer process.
 It supports the same API as `HashRing`. Because of this, there is a performance overhead
@@ -91,7 +97,7 @@ actually want to distribute work to are used in calculations. This configuration
 If you provide a whitelist, the blacklist will have no effect, and only nodes matching the whitelist
 will be added. If you do not provide a whitelist, the blacklist will be used to filter nodes. If you
 do not provide either, a default blacklist containing the `~r/^remsh.*$/` pattern from the example below,
-which is a good default to prevent remote shell sessions (at least those done via releases) from causing 
+which is a good default to prevent remote shell sessions (at least those done via releases) from causing
 the ring to change.
 
 The whitelist and blacklist only have an effect when `monitor_nodes: true`.
@@ -126,8 +132,9 @@ Please ensure that you adhere to a commit style where logically related changes 
 eases review if necessary. Keep commit subject lines informative, but short, and provide additional detail in the extended message text
 if needed. If you can, mention relevant issue numbers in either the subject or the extended message.
 
-## License
+## Copyright and License
 
-MIT
+Copyright (c) 2016 Paul Schoenfelder
 
-Please see the `LICENSE` file for more info.
+This library is MIT licensed. See the
+[LICENSE](https://github.com/bitwalker/libring/blob/master/LICENSE) for details.
