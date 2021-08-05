@@ -31,7 +31,7 @@ ring = HashRing.add_node(ring, :'b@nohost')
 #nodes = :hash_ring.list_to_nodes([:a, :b])
 #ring2 = :hash_ring.make(nodes)
 
-Benchee.run(%{time: 10}, %{
+Benchee.run(%{
       "HashRing.key_to_node (direct)" => fn ->
         for i <- 1..100, do: HashRing.key_to_node(ring, {:myapp, i})
       end,
@@ -44,4 +44,4 @@ Benchee.run(%{time: 10}, %{
       #"sile/hash_ring.find_node" => fn ->
       #  for i <- 1..100, do: :hash_ring.find_node(:erlang.term_to_binary({:myapp, i}), ring2)
       #end,
-})
+}, time: 10)

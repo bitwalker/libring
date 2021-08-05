@@ -17,16 +17,17 @@ defmodule HashRing.Managed do
   memory a node has.
   """
 
-  @type ring         :: atom()
-  @type key          :: any()
-  @type weight       :: pos_integer
-  @type node_list    :: [term() | {term(), weight}]
-  @type pattern_list :: [String.t | Regex.t]
+  @type ring :: pid() | atom()
+  @type key :: any()
+  @type weight :: pos_integer
+  @type node_list :: [term() | {term(), weight}]
+  @type pattern_list :: [String.t() | Regex.t()]
   @type ring_options :: [
-    nodes: node_list,
-    monitor_nodes: boolean,
-    node_blacklist: pattern_list,
-    node_whitelist: pattern_list]
+          nodes: node_list,
+          monitor_nodes: boolean,
+          node_blacklist: pattern_list,
+          node_whitelist: pattern_list
+        ]
 
   @valid_ring_opts [:name, :nodes, :monitor_nodes, :node_blacklist, :node_whitelist, :node_type]
 
@@ -67,31 +68,38 @@ defmodule HashRing.Managed do
 
   """
   @spec new(ring) :: {:ok, pid} | {:error, {:already_started, pid}}
-  @spec new(ring, ring_options) :: {:ok, pid} | {:error, {:already_started, pid}} | {:error, {:invalid_option, term}}
+  @spec new(ring, ring_options) ::
+          {:ok, pid} | {:error, {:already_started, pid}} | {:error, {:invalid_option, term}}
   def new(name, ring_options \\ []) when is_list(ring_options) do
-    opts = [{:name, name}|ring_options]
-    invalid = Enum.find(opts, fn
-      {key, value} when key in @valid_ring_opts ->
-        case key do
-          :name when is_atom(value) -> false
-          :nodes when is_list(value) -> Keyword.keyword?(value)
-          :monitor_nodes when is_boolean(value) -> false
-          :node_blacklist when is_list(value) -> false
-          :node_whitelist when is_list(value) -> false
-          :node_type when value in [:all, :hidden, :visible] -> false
-          _ -> true
-        end
-    end)
+    opts = [{:name, name} | ring_options]
+
+    invalid =
+      Enum.find(opts, fn
+        {key, value} when key in @valid_ring_opts ->
+          case key do
+            :name when is_atom(value) -> false
+            :nodes when is_list(value) -> Keyword.keyword?(value)
+            :monitor_nodes when is_boolean(value) -> false
+            :node_blacklist when is_list(value) -> false
+            :node_whitelist when is_list(value) -> false
+            :node_type when value in [:all, :hidden, :visible] -> false
+            _ -> true
+          end
+      end)
+
     case invalid do
       nil ->
         case Process.whereis(:"libring_#{name}") do
           nil ->
             DynamicSupervisor.start_child(HashRing.Supervisor, {HashRing.Worker, opts})
+
           pid ->
             {:error, {:already_started, pid}}
         end
+
       _ ->
-        raise ArgumentError, message: "#{inspect invalid} is an invalid option for `HashRing.Managed.new/2`"
+        raise ArgumentError,
+          message: "#{inspect(invalid)} is an invalid option for `HashRing.Managed.new/2`"
     end
   end
 
@@ -126,7 +134,7 @@ defmodule HashRing.Managed do
       {:error, :no_such_ring}
   """
   @spec add_node(ring, key) :: :ok | {:error, :no_such_ring}
-  def add_node(ring, node) when is_atom(ring) do
+  def add_node(ring, node) do
     HashRing.Worker.add_node(ring, node)
   end
 
@@ -150,15 +158,16 @@ defmodule HashRing.Managed do
       {:error, :no_such_ring}
 
   """
-  @spec add_node(ring, key, weight) :: :ok |
-    {:error, :no_such_ring} |
-    {:error, {:invalid_weight, key, term}}
-  def add_node(ring, node, weight) when is_atom(ring)
-    and is_integer(weight)
-    and weight > 0 do
+  @spec add_node(ring, key, weight) ::
+          :ok
+          | {:error, :no_such_ring}
+          | {:error, {:invalid_weight, key, term}}
+  def add_node(ring, node, weight)
+      when is_integer(weight) and weight > 0 do
     HashRing.Worker.add_node(ring, node, weight)
   end
-  def add_node(ring, node, weight) when is_atom(ring) do
+
+  def add_node(_ring, node, weight) do
     {:error, {:invalid_weight, node, weight}}
   end
 
@@ -181,26 +190,33 @@ defmodule HashRing.Managed do
       {:error, [{:invalid_weight, "b", :wrong}]}
 
   """
-  @spec add_nodes(ring, node_list) :: :ok |
-    {:error, :no_such_ring} |
-    {:error, [{:invalid_weight, key, term}]}
+  @spec add_nodes(ring, node_list) ::
+          :ok
+          | {:error, :no_such_ring}
+          | {:error, [{:invalid_weight, key, term}]}
   def add_nodes(ring, nodes) when is_list(nodes) do
-      invalid = Enum.filter(nodes, fn
+    invalid =
+      Enum.filter(nodes, fn
         {_node, weight} when is_integer(weight) and weight > 0 ->
           false
+
         {_node, _weight} ->
           true
+
         node when is_binary(node) or is_atom(node) ->
           false
+
         _node ->
           true
       end)
-      case invalid do
-        [] ->
-          HashRing.Worker.add_nodes(ring, nodes)
-        _ ->
-          {:error, Enum.map(invalid, fn {k,v} -> {:invalid_weight, k, v} end)}
-      end
+
+    case invalid do
+      [] ->
+        HashRing.Worker.add_nodes(ring, nodes)
+
+      _ ->
+        {:error, Enum.map(invalid, fn {k, v} -> {:invalid_weight, k, v} end)}
+    end
   end
 
   @doc """
@@ -218,7 +234,7 @@ defmodule HashRing.Managed do
 
   """
   @spec remove_node(ring, key) :: :ok | {:error, :no_such_ring}
-  def remove_node(ring, node) when is_atom(ring) do
+  def remove_node(ring, node) do
     HashRing.Worker.remove_node(ring, node)
   end
 
@@ -227,10 +243,11 @@ defmodule HashRing.Managed do
 
   An error is returned if the ring does not exist.
   """
-  @spec key_to_node(ring, any()) :: key |
-    {:error, :no_such_ring} |
-    {:error, {:invalid_ring, :no_nodes}}
-  def key_to_node(ring, key) when is_atom(ring) do
+  @spec key_to_node(ring, any()) ::
+          key
+          | {:error, :no_such_ring}
+          | {:error, {:invalid_ring, :no_nodes}}
+  def key_to_node(ring, key) do
     HashRing.Worker.key_to_node(ring, key)
   end
 end
