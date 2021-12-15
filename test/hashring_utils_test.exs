@@ -7,6 +7,7 @@ defmodule HashRingUtilsTest do
     blacklist = [
       ~r/^.+_maint_.*$/
     ]
+
     # in blacklist
     assert Utils.ignore_node?(:"disp1_maint_18090@127.0.0.1", blacklist, [])
     # not in blacklist
@@ -17,6 +18,7 @@ defmodule HashRingUtilsTest do
     whitelist = [
       ~r/^disp1.*$/
     ]
+
     # in whitelist
     refute Utils.ignore_node?(:"disp1_maint_18090@127.0.0.1", [], whitelist)
     # not in whitelist
@@ -27,9 +29,11 @@ defmodule HashRingUtilsTest do
     blacklist = [
       ~r/^.+_maint_.*$/
     ]
+
     whitelist = [
       ~r/^disp1.*$/
     ]
+
     # only in blacklist
     assert Utils.ignore_node?(:"maint_18090@127.0.0.1", blacklist, whitelist)
     # in whitelist and blacklist whitelist takes precedence
@@ -45,10 +49,12 @@ defmodule HashRingUtilsTest do
       ~r/^.+_maint1_.*$/,
       ~r/^.+_maint2_.*$/
     ]
+
     whitelist = [
       ~r/^disp1.*$/,
       ~r/^disp2.*$/
     ]
+
     # only in blacklist1
     assert Utils.ignore_node?(:"disp3_maint1_18090@127.0.0.1", blacklist, whitelist)
     # only in blacklist2
@@ -64,5 +70,4 @@ defmodule HashRingUtilsTest do
     # neither in blacklist nor in whitelist
     assert Utils.ignore_node?(:"18090@127.0.0.1", blacklist, whitelist)
   end
-
 end
