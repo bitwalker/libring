@@ -29,7 +29,7 @@ defmodule HashRing.Mixfile do
 
   def application do
     [
-      applications: [:logger, :crypto],
+      extra_applications: [:logger, :crypto],
       mod: {HashRing.App, []}
     ]
   end
