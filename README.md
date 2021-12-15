@@ -112,6 +112,7 @@ config :libring,
     # A ring which automatically changes based on Erlang cluster membership,
     # but does not allow nodes named "a" or "remsh*" to be added to the ring
     ring_a: [monitor_nodes: true,
+             node_type: :visible,
              node_blacklist: ["a", ~r/^remsh.*$/]],
     # A ring which is composed of three nodes, of which "c" has a non-default weight of 200
     # The default weight is 128

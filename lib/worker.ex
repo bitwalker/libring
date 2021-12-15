@@ -39,7 +39,8 @@ defmodule HashRing.Worker do
               HashRing.add_node(acc, node)
           end
         end)
-        :ok = :net_kernel.monitor_nodes(true, [node_type: :all])
+        node_type = Keyword.get(options, :node_type, :all)
+        :ok = :net_kernel.monitor_nodes(true, [node_type: node_type])
         {:ok, {ring, node_blacklist, node_whitelist}}
       :else ->
         nodes = Keyword.get(options, :nodes, [])
