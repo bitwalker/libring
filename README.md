@@ -122,8 +122,6 @@ config :libring,
 
 ## Contributing
 
-To run the test suite you will need to run `mix eqc.install --mini` once you've cloned the repo and fetched dependencies.
-
 If you have changes in mind that are significant or potentially time consuming, please open a RFC-style PR first, where we
 can discuss your plans first. I don't want you to spend all your time crafting a PR that I ultimately reject because I don't
 think it's a good fit or is too large for me to review. Not that I plan to reject PRs in general, but I have to be careful to
