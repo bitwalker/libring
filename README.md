@@ -102,6 +102,10 @@ the ring to change.
 
 The whitelist and blacklist only have an effect when `monitor_nodes: true`.
 
+It is possible to have the ring wait until an application starts before it is included in the ring.
+This can be accomplished by setting `wait_for_readiness: true` and listing the app dependencies in
+`readiness_deps: [:app1, :app2]`.
+
 ## Configuration
 
 Below is an example configuration:
@@ -113,7 +117,9 @@ config :libring,
     # but does not allow nodes named "a" or "remsh*" to be added to the ring
     ring_a: [monitor_nodes: true,
              node_type: :visible,
-             node_blacklist: ["a", ~r/^remsh.*$/]],
+             node_blacklist: ["a", ~r/^remsh.*$/],
+             wait_for_readiness: true,
+             readiness_deps: [:myapp]],
     # A ring which is composed of three nodes, of which "c" has a non-default weight of 200
     # The default weight is 128
     ring_b: [nodes: ["a", "b", {"c", 200}]]
