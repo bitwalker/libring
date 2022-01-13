@@ -2,6 +2,19 @@ defmodule HashRing.Worker do
   @moduledoc false
   use GenServer
 
+  @erpc_timeout 500
+  @node_readiness_check_interval :timer.seconds(1)
+
+  defstruct [
+    :table,
+    :node_blacklist,
+    :node_whitelist,
+    :wait_for_readiness,
+    :readiness_deps_set
+  ]
+
+  alias __MODULE__, as: State
+
   def nodes(pid_or_name)
 
   def nodes(pid) when is_pid(pid) do
@@ -14,7 +27,7 @@ defmodule HashRing.Worker do
     |> get_ring()
     |> HashRing.nodes()
   rescue
-    ArgumentError -> 
+    ArgumentError ->
       {:error, :no_such_ring}
   end
 
@@ -69,55 +82,135 @@ defmodule HashRing.Worker do
         nodes = [Node.self() | Node.list(:connected)]
         node_blacklist = Keyword.get(options, :node_blacklist, [~r/^remsh.*$/, ~r/^rem-.*$/])
         node_whitelist = Keyword.get(options, :node_whitelist, [])
+        wait_for_readiness = Keyword.get(options, :wait_for_readiness, false)
+        readiness_deps_set = Keyword.get(options, :readiness_deps, []) |> MapSet.new()
 
         ring =
           Enum.reduce(nodes, ring, fn node, acc ->
-            cond do
-              HashRing.Utils.ignore_node?(node, node_blacklist, node_whitelist) ->
-                acc
-
-              :else ->
+            if HashRing.Utils.ignore_node?(node, node_blacklist, node_whitelist) do
+              acc
+            else
+              if wait_for_readiness do
+                if node_ready?(node, readiness_deps_set) do
+                  HashRing.add_node(acc, node)
+                else
+                  schedule_check_for_node_readiness(node)
+                  acc
+                end
+              else
                 HashRing.add_node(acc, node)
+              end
             end
           end)
 
         node_type = Keyword.get(options, :node_type, :all)
         :ok = :net_kernel.monitor_nodes(true, node_type: node_type)
         true = :ets.insert_new(table, {:ring, ring})
-        {:ok, {table, node_blacklist, node_whitelist}}
+
+        {:ok,
+         %State{
+           table: table,
+           node_blacklist: node_blacklist,
+           node_whitelist: node_whitelist,
+           wait_for_readiness: wait_for_readiness,
+           readiness_deps_set: readiness_deps_set
+         }}
 
       :else ->
         nodes = Keyword.get(options, :nodes, [])
         ring = HashRing.add_nodes(ring, nodes)
         true = :ets.insert_new(table, {:ring, ring})
-        {:ok, {table, [], []}}
+
+        {:ok,
+         %State{
+           table: table,
+           node_blacklist: [],
+           node_whitelist: [],
+           wait_for_readiness: false,
+           readiness_deps_set: MapSet.new()
+         }}
     end
   end
 
-  def handle_call(:list_nodes, _from, {table, _b, _w} = state) do
+  def handle_call(:list_nodes, _from, %State{table: table} = state) do
     {:reply, HashRing.nodes(get_ring(table)), state}
   end
 
-  def handle_call({:key_to_node, key}, _from, {table, _b, _w} = state) do
+  def handle_call({:key_to_node, key}, _from, %State{table: table} = state) do
     {:reply, HashRing.key_to_node(get_ring(table), key), state}
   end
 
-  def handle_call({:add_node, node}, _from, {table, _b, _w} = state) do
-    get_ring(table) |> HashRing.add_node(node) |> update_ring(table)
+  def handle_call(
+        {:add_node, node},
+        _from,
+        %State{
+          table: table,
+          wait_for_readiness: wait_for_readiness,
+          readiness_deps_set: readiness_deps_set
+        } = state
+      ) do
+    if wait_for_readiness and not node_ready?(node, readiness_deps_set) do
+      schedule_check_for_node_readiness(node)
+    else
+      get_ring(table) |> HashRing.add_node(node) |> update_ring(table)
+    end
+
     {:reply, :ok, state}
   end
 
-  def handle_call({:add_node, node, weight}, _from, {table, _b, _w} = state) do
-    get_ring(table) |> HashRing.add_node(node, weight) |> update_ring(table)
+  def handle_call(
+        {:add_node, node, weight},
+        _from,
+        %State{
+          table: table,
+          wait_for_readiness: wait_for_readiness,
+          readiness_deps_set: readiness_deps_set
+        } = state
+      ) do
+    if wait_for_readiness and not node_ready?(node, readiness_deps_set) do
+      schedule_check_for_node_readiness({node, weight})
+    else
+      get_ring(table) |> HashRing.add_node(node, weight) |> update_ring(table)
+    end
+
     {:reply, :ok, state}
   end
 
-  def handle_call({:add_nodes, nodes}, _from, {table, _b, _w} = state) do
-    get_ring(table) |> HashRing.add_nodes(nodes) |> update_ring(table)
+  def handle_call(
+        {:add_nodes, nodes},
+        _from,
+        %State{
+          table: table,
+          wait_for_readiness: wait_for_readiness,
+          readiness_deps_set: readiness_deps_set
+        } = state
+      ) do
+    if wait_for_readiness do
+      %{true: ready_nodes, false: starting_nodes} =
+        Enum.group_by(
+          nodes,
+          fn
+            {node, _weight} ->
+              node_ready?(node, readiness_deps_set)
+
+            node ->
+              node_ready?(node, readiness_deps_set)
+          end
+        )
+
+      get_ring(table) |> HashRing.add_nodes(ready_nodes) |> update_ring(table)
+
+      for starting_node <- starting_nodes do
+        schedule_check_for_node_readiness(starting_node)
+      end
+    else
+      get_ring(table) |> HashRing.add_nodes(nodes) |> update_ring(table)
+    end
+
     {:reply, :ok, state}
   end
 
-  def handle_call({:remove_node, node}, _from, {table, _b, _w} = state) do
+  def handle_call({:remove_node, node}, _from, %State{table: table} = state) do
     get_ring(table) |> HashRing.remove_node(node) |> update_ring(table)
     {:reply, :ok, state}
   end
@@ -127,16 +220,59 @@ defmodule HashRing.Worker do
     {:stop, :shutdown, state}
   end
 
-  def handle_info({:nodeup, node, _info}, {table, b, w} = state) do
+  def handle_info(
+        {:nodeup, node, _info},
+        %State{
+          table: table,
+          node_blacklist: b,
+          node_whitelist: w,
+          wait_for_readiness: wait_for_readiness,
+          readiness_deps_set: readiness_deps_set
+        } = state
+      ) do
     unless HashRing.Utils.ignore_node?(node, b, w) do
-      get_ring(table) |> HashRing.add_node(node) |> update_ring(table)
+      if wait_for_readiness and not node_ready?(node, readiness_deps_set) do
+        schedule_check_for_node_readiness(node)
+      else
+        get_ring(table) |> HashRing.add_node(node) |> update_ring(table)
+      end
     end
 
     {:noreply, state}
   end
 
-  def handle_info({:nodedown, node, _info}, state = {table, _b, _w}) do
+  def handle_info({:nodedown, node, _info}, %State{table: table} = state) do
     get_ring(table) |> HashRing.remove_node(node) |> update_ring(table)
+    {:noreply, state}
+  end
+
+  def handle_info(
+        {:check_node_readiness, node, weight},
+        %State{table: table, readiness_deps_set: readiness_deps_set} = state
+      ) do
+    if node_ready?(node, readiness_deps_set) do
+      get_ring(table) |> HashRing.add_node(node, weight) |> update_ring(table)
+    else
+      schedule_check_for_node_readiness({node, weight})
+    end
+
+    {:noreply, state}
+  end
+
+  def handle_info(
+        {:check_node_readiness, node},
+        %State{table: table, readiness_deps_set: readiness_deps_set} = state
+      ) do
+    if node_ready?(node, readiness_deps_set) do
+      get_ring(table) |> HashRing.add_node(node) |> update_ring(table)
+    else
+      schedule_check_for_node_readiness(node)
+    end
+
+    {:noreply, state}
+  end
+
+  def handle_info(_msg, state) do
     {:noreply, state}
   end
 
@@ -160,6 +296,33 @@ defmodule HashRing.Worker do
 
   defp get_ring(table), do: :ets.lookup_element(table, :ring, 2)
 
-  defp update_ring(ring, table), 
+  defp update_ring(ring, table),
     do: :ets.update_element(table, :ring, {2, ring})
+
+  defp get_started_apps_set(node) do
+    try do
+      :erpc.call(node, Application, :started_applications, [], @erpc_timeout)
+      |> Enum.map(&elem(&1, 0))
+      |> MapSet.new()
+    rescue
+      _e -> MapSet.new()
+    end
+  end
+
+  defp node_ready?(node, readiness_deps_set) do
+    MapSet.difference(readiness_deps_set, get_started_apps_set(node))
+    |> MapSet.equal?(MapSet.new())
+  end
+
+  defp schedule_check_for_node_readiness({node, weight}) do
+    if node in Node.list() do
+      :timer.send_after(@node_readiness_check_interval, {:check_node_readiness, node, weight})
+    end
+  end
+
+  defp schedule_check_for_node_readiness(node) do
+    if node in Node.list() do
+      :timer.send_after(@node_readiness_check_interval, {:check_node_readiness, node})
+    end
+  end
 end

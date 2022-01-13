@@ -3,34 +3,34 @@ defmodule HashRing.WorkerTest do
 
   describe "when the given node_type is :visible" do
     setup do
-      TestCluster.prepare()
-
       {:ok, pid} =
         HashRing.Worker.start_link(
           name: :test_ring_worker,
           monitor_nodes: true,
-          node_type: :visible
+          node_type: :visible,
+          node_whitelist: [~r/^normal.*$/, ~r/^hidden.*$/, ~r/^manager.*$/]
         )
-
-      on_exit(fn ->
-        HashRing.Worker.delete(pid)
-        TestCluster.teardown()
-      end)
 
       %{worker: pid}
     end
 
     test "it monitors only visible nodes", %{worker: pid} do
       nodes = [Node.self()]
+
+      TestCluster.retry_until_true(fn ->
+        nodes == HashRing.Worker.nodes(pid)
+      end)
+
       assert nodes == HashRing.Worker.nodes(pid)
 
-      {:ok, node1} = TestCluster.start_node('test_node1')
+      [node1] = TestCluster.start_nodes("normal", 1)
 
       nodes = [node1 | nodes]
       assert nodes == HashRing.Worker.nodes(pid)
 
-      {:ok, _node2} = TestCluster.start_node('test_node2', :hidden)
+      [node2] = TestCluster.start_nodes("hidden", 1, hidden: true)
       assert nodes == HashRing.Worker.nodes(pid)
+      LocalCluster.stop_nodes([node1, node2])
     end
   end
 end
