@@ -45,7 +45,7 @@ You have two choices for managing hash rings in your application:
 
 This API works with the raw ring data structure. It is the fastest implementation,
 and is best suited for when you have a single process which will need to access the
-ring, and which can hold the ring in it's internal state.
+ring, and which can hold the ring in its internal state.
 
 ```elixir
 ring = HashRing.new()
@@ -122,7 +122,7 @@ config :libring,
 
 ## Contributing
 
-If you have changes in mind that are significant or potentially time consuming, please open a RFC-style PR first, where we
+If you have changes in mind that are significant or potentially time-consuming, please open an RFC-style PR first, where we
 can discuss your plans first. I don't want you to spend all your time crafting a PR that I ultimately reject because I don't
 think it's a good fit or is too large for me to review. Not that I plan to reject PRs in general, but I have to be careful to
 balance features with maintenance burden, or I will quickly be unable to manage the project.

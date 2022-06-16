@@ -123,7 +123,7 @@ defmodule HashRing do
   @doc """
   Adds a list of nodes to the hash ring.
 
-  The list can contain just the node key, or a tuple of the node key and it's desired weight.
+  The list can contain just the node key, or a tuple of the node key and its desired weight.
 
   See also the documentation for `add_node/3`.
 
