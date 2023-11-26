@@ -49,12 +49,12 @@ defmodule HashRing.Managed do
   def child_spec(opts) do
     opts = Keyword.put_new(opts, :name, :hash_ring_manager)
 
-    %{
+    Keyword.merge(%{
       id: opts[:id] || opts[:name],
       type: :worker,
       restart: :permanent,
       start: {__MODULE__, :run, [opts[:name], Keyword.take(opts, @valid_ring_opts)]}
-    }
+    }, Keyword.drop(opts, @valid_ring_opts))
   end
 
   @doc """
