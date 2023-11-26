@@ -250,4 +250,17 @@ defmodule HashRing.Managed do
   def key_to_node(ring, key) do
     HashRing.Worker.key_to_node(ring, key)
   end
+
+  @doc """
+  Maps a key to a set of nodes on the hash ring.
+
+  An error is returned if the ring does not exist.
+  """
+  @spec key_to_nodes(ring, any(), pos_integer) ::
+          [key]
+          | {:error, :no_such_ring}
+          | {:error, {:invalid_ring, :no_nodes}}
+  def key_to_nodes(ring, key, count) do
+    HashRing.Worker.key_to_nodes(ring, key, count)
+  end
 end

@@ -14,7 +14,7 @@ defmodule HashRing.Worker do
     |> get_ring()
     |> HashRing.nodes()
   rescue
-    ArgumentError -> 
+    ArgumentError ->
       {:error, :no_such_ring}
   end
 
@@ -34,6 +34,22 @@ defmodule HashRing.Worker do
     |> get_ets_name()
     |> get_ring()
     |> HashRing.key_to_node(key)
+  rescue
+    ArgumentError ->
+      {:error, :no_such_ring}
+  end
+
+  def key_to_nodes(pid_or_name, key, count)
+
+  def key_to_nodes(pid, key, count) when is_pid(pid) do
+    do_call(pid, {:key_to_nodes, key, count})
+  end
+
+  def key_to_nodes(name, key, count) when is_atom(name) do
+    name
+    |> get_ets_name()
+    |> get_ring()
+    |> HashRing.key_to_nodes(key, count)
   rescue
     ArgumentError ->
       {:error, :no_such_ring}
@@ -102,6 +118,10 @@ defmodule HashRing.Worker do
     {:reply, HashRing.key_to_node(get_ring(table), key), state}
   end
 
+  def handle_call({:key_to_nodes, key, count}, _from, {table, _b, _w} = state) do
+    {:reply, HashRing.key_to_nodes(get_ring(table), key, count), state}
+  end
+
   def handle_call({:add_node, node}, _from, {table, _b, _w} = state) do
     get_ring(table) |> HashRing.add_node(node) |> update_ring(table)
     {:reply, :ok, state}
@@ -160,6 +180,6 @@ defmodule HashRing.Worker do
 
   defp get_ring(table), do: :ets.lookup_element(table, :ring, 2)
 
-  defp update_ring(ring, table), 
+  defp update_ring(ring, table),
     do: :ets.update_element(table, :ring, {2, ring})
 end
