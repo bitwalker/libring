@@ -29,7 +29,33 @@ defmodule HashRing.Managed do
           node_whitelist: pattern_list
         ]
 
+  @type child_spec_options :: [
+          :id => atom() | term(),
+          :start => {module, function_name :: atom, args :: [term]},
+          optional(:restart) => restart,
+          optional(:shutdown) => shutdown,
+          optional(:type) => type,
+          optional(:modules) => [module] | :dynamic,
+          optional(:significant) => boolean,
+          :nodes => node_list,
+          :monitor_nodes => boolean,
+          :node_blacklist => pattern_list,
+          :node_whitelist => pattern_list
+        ]
+
   @valid_ring_opts [:name, :nodes, :monitor_nodes, :node_blacklist, :node_whitelist, :node_type]
+
+  @spec child_spec(child_spec_options) :: Supervisor.child_spec
+  def child_spec(opts) do
+    opts = Keyword.put_new(opts, :name, :hash_ring_manager)
+
+    %{
+      id: opts[:id] || opts[:name],
+      type: :worker,
+      restart: :permanent,
+      start: {__MODULE__, :run, [opts[:name], Keyword.take(opts, @valid_ring_opts)]}
+    }
+  end
 
   @doc """
   Creates a new stateful hash ring with the given name.
