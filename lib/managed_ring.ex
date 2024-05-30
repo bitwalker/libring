@@ -22,12 +22,15 @@ defmodule HashRing.Managed do
   @type weight :: pos_integer
   @type node_list :: [term() | {term(), weight}]
   @type pattern_list :: [String.t() | Regex.t()]
+  @type app_list :: [atom()]
   @type ring_options :: [
           nodes: node_list,
           monitor_nodes: boolean,
           node_blacklist: pattern_list,
           node_whitelist: pattern_list,
-          node_type: :all | :hidden | :visible
+          node_type: :all | :hidden | :visible,
+          wait_for_readiness: boolean,
+          readiness_deps: app_list
         ]
 
   @type child_spec_options :: [
@@ -41,10 +44,22 @@ defmodule HashRing.Managed do
           :nodes => node_list,
           :monitor_nodes => boolean,
           :node_blacklist => pattern_list,
-          :node_whitelist => pattern_list
+          :node_whitelist => pattern_list,
+          :node_type => :all | :hidden | :visible,
+          :wait_for_readiness => boolean,
+          :readiness_deps: app_list,
         ]
 
-  @valid_ring_opts [:name, :nodes, :monitor_nodes, :node_blacklist, :node_whitelist, :node_type]
+  @valid_ring_opts [
+    :name,
+    :nodes,
+    :monitor_nodes,
+    :node_blacklist,
+    :node_whitelist,
+    :node_type,
+    :wait_for_readiness,
+    :readiness_deps
+  ]
 
   @spec child_spec(child_spec_options) :: Supervisor.child_spec
   def child_spec(opts) do
@@ -76,6 +91,8 @@ defmodule HashRing.Managed do
     is provided, the blacklist has no effect.
   * `node_whitelist: [String.t | Regex.t]` - The same as `node_blacklist`, except the opposite; only nodes
     which match a pattern in the whitelist will result in the ring being updated.
+  * `wait_for_readiness: boolean` - Wait for apps listed in `readiness_deps` to start before adding to the ring.
+  * `readiness_deps: [atom]` - List of dependency apps that need to start before the node is considered ready.
   * `node_type: :all | :hidden | :visible`: refers what kind of nodes will be monitored
     when `monitor_nodes` is `true`. For more information, see `:net_kernel.monitor_nodes/2`.
 
@@ -111,6 +128,8 @@ defmodule HashRing.Managed do
             :node_blacklist when is_list(value) -> false
             :node_whitelist when is_list(value) -> false
             :node_type when value in [:all, :hidden, :visible] -> false
+            :wait_for_readiness when is_boolean(value) -> false
+            :readiness_deps when is_list(value) -> false
             _ -> true
           end
       end)

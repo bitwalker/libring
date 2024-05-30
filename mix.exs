@@ -41,8 +41,9 @@ defmodule HashRing.Mixfile do
 
       {:ex_doc, ">= 0.0.0", only: [:docs]},
       {:benchee, "~> 1.0", only: [:dev]},
-      {:dialyxir, "~> 1.0", only: [:test], runtime: false},
-      {:stream_data, "~> 0.5", only: [:test]}
+      {:dialyxir, "~> 1.0", only: [:dev], runtime: false},
+      {:stream_data, "~> 0.5", only: [:test]},
+      {:local_cluster, "~> 1.2", only: [:test]}
     ]
   end
 
