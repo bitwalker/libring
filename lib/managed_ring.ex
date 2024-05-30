@@ -28,8 +28,26 @@ defmodule HashRing.Managed do
           monitor_nodes: boolean,
           node_blacklist: pattern_list,
           node_whitelist: pattern_list,
+          node_type: :all | :hidden | :visible,
           wait_for_readiness: boolean,
           readiness_deps: app_list
+        ]
+
+  @type child_spec_options :: [
+          :id => atom() | term(),
+          :start => {module, function_name :: atom, args :: [term]},
+          optional(:restart) => restart,
+          optional(:shutdown) => shutdown,
+          optional(:type) => type,
+          optional(:modules) => [module] | :dynamic,
+          optional(:significant) => boolean,
+          :nodes => node_list,
+          :monitor_nodes => boolean,
+          :node_blacklist => pattern_list,
+          :node_whitelist => pattern_list,
+          :node_type => :all | :hidden | :visible,
+          :wait_for_readiness => boolean,
+          :readiness_deps: app_list,
         ]
 
   @valid_ring_opts [
@@ -43,6 +61,18 @@ defmodule HashRing.Managed do
     :readiness_deps
   ]
 
+  @spec child_spec(child_spec_options) :: Supervisor.child_spec
+  def child_spec(opts) do
+    opts = Keyword.put_new(opts, :name, :hash_ring_manager)
+
+    Keyword.merge(%{
+      id: opts[:id] || opts[:name],
+      type: :worker,
+      restart: :permanent,
+      start: {__MODULE__, :run, [opts[:name], Keyword.take(opts, @valid_ring_opts)]}
+    }, Keyword.drop(opts, @valid_ring_opts))
+  end
+
   @doc """
   Creates a new stateful hash ring with the given name.
 
@@ -51,6 +81,7 @@ defmodule HashRing.Managed do
   It takes an optional set of options which control how the ring behaves.
   Valid options are as follows:
 
+  * `nodes: list` - a list of nodes to initialize the ring.
   * `monitor_nodes: boolean` - will automatically monitor Erlang node membership,
     if new nodes are connected or nodes are disconnected, the ring will be updated automatically.
     In this configuration, nodes cannot be added or removed via the API. Those requests will be ignored.
@@ -62,7 +93,7 @@ defmodule HashRing.Managed do
     which match a pattern in the whitelist will result in the ring being updated.
   * `wait_for_readiness: boolean` - Wait for apps listed in `readiness_deps` to start before adding to the ring.
   * `readiness_deps: [atom]` - List of dependency apps that need to start before the node is considered ready.
-  - `node_type: :all | :hidden | :visible`: refers what kind of nodes will be monitored
+  * `node_type: :all | :hidden | :visible`: refers what kind of nodes will be monitored
     when `monitor_nodes` is `true`. For more information, see `:net_kernel.monitor_nodes/2`.
 
   An error is returned if the ring already exists or if bad ring options are provided.

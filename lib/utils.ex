@@ -39,7 +39,7 @@ defmodule HashRing.Utils do
 
           {:error, reason} ->
             :ok =
-              Logger.warn(
+              Logger.warning(
                 "[libring] ignore_node?/3: invalid blacklist pattern (#{inspect(pattern)}): #{inspect(reason)}"
               )
 
@@ -63,7 +63,7 @@ defmodule HashRing.Utils do
 
           {:error, reason} ->
             :ok =
-              Logger.warn(
+              Logger.warning(
                 "[libring] ignore_node?/3: invalid whitelist pattern (#{inspect(pattern)}): #{inspect(reason)}"
               )
 
