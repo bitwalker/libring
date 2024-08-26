@@ -206,6 +206,11 @@ defmodule HashRing do
     hash = :erlang.phash2(key, @hash_range)
 
     case :gb_trees.iterator_from(hash, r) do
+      # OTP >= 27 version of iterator
+      {:ordered, [{_key, node, _, _} | _]} ->
+        node
+
+      # OTP < 27 version of iterator
       [{_key, node, _, _} | _] ->
         node
 
