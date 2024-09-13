@@ -12,7 +12,7 @@ defmodule HashRing.App do
       start: {HashRing.Worker, :start_link, [[restart: :transient, name: HashRing.Worker]]}
     }
 
-    DynamicSupervisor.start_child(HashRing.Supervisor, spec)
+    _ = DynamicSupervisor.start_child(HashRing.Supervisor, spec)
 
     # Add any preconfigured rings
     Enum.each(Application.get_env(:libring, :rings, []), fn
