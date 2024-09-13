@@ -205,8 +205,8 @@ defmodule HashRing do
   def key_to_node(%__MODULE__{ring: r}, key) do
     hash = :erlang.phash2(key, @hash_range)
 
-    case :gb_trees.iterator_from(hash, r) do
-      [{_key, node, _, _} | _] ->
+    case :gb_trees.iterator_from(hash, r) |> :gb_trees.next() do
+      {_key, node, _} ->
         node
 
       _ ->
@@ -244,8 +244,8 @@ defmodule HashRing do
     hash = :erlang.phash2(key, @hash_range)
     count = min(length(nodes), count)
 
-    case :gb_trees.iterator_from(hash, r) do
-      [{_key, node, _, _} | _] = iter ->
+    case :gb_trees.iterator_from(hash, r) |> :gb_trees.next() do
+      {_key, node, iter} ->
         find_nodes_from_iter(iter, count - 1, [node])
 
       _ ->
@@ -262,7 +262,6 @@ defmodule HashRing do
         if node in results do
           find_nodes_from_iter(iter, count, results)
         else
-          [node | results]
           find_nodes_from_iter(iter, count - 1, [node | results])
         end
 

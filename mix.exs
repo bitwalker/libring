@@ -16,7 +16,7 @@ defmodule HashRing.Mixfile do
       docs: docs(),
       deps: deps(),
       dialyzer: [
-        flags: ~w(-Wunmatched_returns -Werror_handling -Wrace_conditions -Wno_opaque -Wunderspecs)
+        flags: ~w(-Wunmatched_returns -Werror_handling -Wno_opaque -Wunderspecs)
       ],
       preferred_cli_env: [
         docs: :docs,

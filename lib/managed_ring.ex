@@ -30,32 +30,36 @@ defmodule HashRing.Managed do
           node_type: :all | :hidden | :visible
         ]
 
-  @type child_spec_options :: [
-          :id => atom() | term(),
-          :start => {module, function_name :: atom, args :: [term]},
-          optional(:restart) => restart,
-          optional(:shutdown) => shutdown,
-          optional(:type) => type,
-          optional(:modules) => [module] | :dynamic,
-          optional(:significant) => boolean,
-          :nodes => node_list,
-          :monitor_nodes => boolean,
-          :node_blacklist => pattern_list,
-          :node_whitelist => pattern_list
-        ]
+  @type child_spec_option ::
+          {:id, atom() | term()}
+          | {:start, {module, function_name :: atom, args :: [term]}}
+          | {:restart, :permanent | :transient | :temporary}
+          | {:shutdown, timeout() | :brutal_kill}
+          | {:type, :worker | :supervisor}
+          | {:modules, [module] | :dynamic}
+          | {:significant, boolean}
+          | {:nodes, node_list}
+          | {:monitor_nodes, boolean}
+          | {:node_blacklist, pattern_list}
+          | {:node_whitelist, pattern_list}
+
+  @type child_spec_options :: [child_spec_option()]
 
   @valid_ring_opts [:name, :nodes, :monitor_nodes, :node_blacklist, :node_whitelist, :node_type]
 
-  @spec child_spec(child_spec_options) :: Supervisor.child_spec
+  @spec child_spec(child_spec_options) :: Supervisor.child_spec()
   def child_spec(opts) do
     opts = Keyword.put_new(opts, :name, :hash_ring_manager)
 
-    Keyword.merge(%{
-      id: opts[:id] || opts[:name],
-      type: :worker,
-      restart: :permanent,
-      start: {__MODULE__, :run, [opts[:name], Keyword.take(opts, @valid_ring_opts)]}
-    }, Keyword.drop(opts, @valid_ring_opts))
+    Map.merge(
+      %{
+        id: opts[:id] || opts[:name],
+        type: :worker,
+        restart: :permanent,
+        start: {__MODULE__, :run, [opts[:name], Keyword.take(opts, @valid_ring_opts)]}
+      },
+      Map.new(Keyword.drop(opts, @valid_ring_opts))
+    )
   end
 
   @doc """
