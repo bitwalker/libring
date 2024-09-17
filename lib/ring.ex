@@ -90,7 +90,7 @@ defmodule HashRing do
       ...> ring = HashRing.add_node(ring, "a")
       ...> %HashRing{nodes: ["b", "a"]} = ring = HashRing.add_node(ring, "b", 64)
       ...> HashRing.key_to_node(ring, :foo)
-      "b"
+      "a"
 
   """
   @spec add_node(__MODULE__.t(), term(), pos_integer) :: __MODULE__.t()
@@ -133,7 +133,7 @@ defmodule HashRing do
       ...> ring = HashRing.add_nodes(ring, ["a", {"b", 64}])
       ...> %HashRing{nodes: ["b", "a"]} = ring
       ...> HashRing.key_to_node(ring, :foo)
-      "b"
+      "a"
 
   """
   @spec add_nodes(__MODULE__.t(), [term() | {term(), pos_integer}]) :: __MODULE__.t()

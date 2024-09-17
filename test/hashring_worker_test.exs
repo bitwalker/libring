@@ -24,12 +24,12 @@ defmodule HashRing.WorkerTest do
       nodes = [Node.self()]
       assert nodes == HashRing.Worker.nodes(pid)
 
-      {:ok, node1} = TestCluster.start_node('test_node1')
+      {:ok, _peer, node1} = TestCluster.start_node(~c"test_node1")
 
       nodes = [node1 | nodes]
       assert nodes == HashRing.Worker.nodes(pid)
 
-      {:ok, _node2} = TestCluster.start_node('test_node2', :hidden)
+      {:ok, _peer, _node2} = TestCluster.start_node(~c"test_node2", :hidden)
       assert nodes == HashRing.Worker.nodes(pid)
     end
   end

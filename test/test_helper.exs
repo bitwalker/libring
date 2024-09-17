@@ -1,20 +1,20 @@
 defmodule TestCluster do
   def start_node(name) do
-    :slave.start_link(:localhost, name)
+    :peer.start_link(%{name: name})
   end
 
   def start_node(name, :hidden) do
-    :slave.start_link(:localhost, name, '-hidden')
+    :peer.start_link(%{name: name, args: [~c"-hidden"]})
   end
 
   def stop_node(node) do
-    :slave.stop(node)
+    :peer.stop(node)
   end
 
   def prepare do
     :ok = :net_kernel.monitor_nodes(true)
 
-    _ = :os.cmd('epmd -daemon')
+    _ = :os.cmd(~c"epmd -daemon")
 
     {:ok, _} = Node.start(:test_cluster@localhost, :shortnames)
   end
