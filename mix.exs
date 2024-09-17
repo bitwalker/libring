@@ -2,7 +2,7 @@ defmodule HashRing.Mixfile do
   use Mix.Project
 
   @source_url "https://github.com/bitwalker/libring"
-  @version "1.6.0"
+  @version "1.7.0"
 
   def project do
     [
