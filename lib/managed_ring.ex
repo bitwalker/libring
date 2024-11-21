@@ -56,7 +56,7 @@ defmodule HashRing.Managed do
         id: opts[:id] || opts[:name],
         type: :worker,
         restart: :permanent,
-        start: {__MODULE__, :run, [opts[:name], Keyword.take(opts, @valid_ring_opts)]}
+        start: {__MODULE__, :new, [opts[:name], Keyword.take(opts, @valid_ring_opts)]}
       },
       Map.new(Keyword.drop(opts, @valid_ring_opts))
     )
