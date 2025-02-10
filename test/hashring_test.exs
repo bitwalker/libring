@@ -19,6 +19,16 @@ defmodule HashRingTest do
     assert length(nodes) == 2
   end
 
+  # https://github.com/bitwalker/libring/issues/39
+  test "key_to_nodes/3 test 14" do
+    ring =
+      HashRing.new()
+      |> HashRing.add_node(:a@localhost)
+      |> HashRing.add_node(:b@localhost)
+
+    assert HashRing.key_to_nodes(ring, 14, 2) == [:a@localhost, :b@localhost]
+  end
+
   property "adding one node leaves us with a tree with one node" do
     check all(name <- string(:printable, min_length: 1)) do
       %HashRing{nodes: nodes} = HashRing.new(name)

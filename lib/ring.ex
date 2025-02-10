@@ -246,7 +246,7 @@ defmodule HashRing do
 
     case :gb_trees.iterator_from(hash, r) |> :gb_trees.next() do
       {_key, node, iter} ->
-        find_nodes_from_iter(iter, count - 1, [node])
+        find_nodes_from_iter(r, iter, count - 1, [node], _restarted? = false)
 
       _ ->
         {_key, node} = :gb_trees.smallest(r)
@@ -254,19 +254,24 @@ defmodule HashRing do
     end
   end
 
-  defp find_nodes_from_iter(_iter, 0, results), do: Enum.reverse(results)
+  defp find_nodes_from_iter(_ring, _iter, 0, results, _restared?), do: Enum.reverse(results)
 
-  defp find_nodes_from_iter(iter, count, results) do
+  defp find_nodes_from_iter(ring, iter, count, results, restarted?) do
     case :gb_trees.next(iter) do
       {_key, node, iter} ->
         if node in results do
-          find_nodes_from_iter(iter, count, results)
+          find_nodes_from_iter(ring, iter, count, results, restarted?)
         else
-          find_nodes_from_iter(iter, count - 1, [node | results])
+          find_nodes_from_iter(ring, iter, count - 1, [node | results], restarted?)
         end
 
-      _ ->
-        results
+      :none ->
+        if restarted? do
+          Enum.reverse(results)
+        else
+          restart_iter = :gb_trees.iterator(ring)
+          find_nodes_from_iter(ring, restart_iter, count, results, _restarted? = true)
+        end
     end
   end
 end
