@@ -27,7 +27,8 @@ defmodule HashRing.Managed do
           monitor_nodes: boolean,
           node_blacklist: pattern_list,
           node_whitelist: pattern_list,
-          node_type: :all | :hidden | :visible
+          node_type: :all | :hidden | :visible,
+          node_weight: pos_integer
         ]
 
   @type child_spec_option ::
@@ -42,10 +43,19 @@ defmodule HashRing.Managed do
           | {:monitor_nodes, boolean}
           | {:node_blacklist, pattern_list}
           | {:node_whitelist, pattern_list}
+          | {:node_weight, pos_integer}
 
   @type child_spec_options :: [child_spec_option()]
 
-  @valid_ring_opts [:name, :nodes, :monitor_nodes, :node_blacklist, :node_whitelist, :node_type]
+  @valid_ring_opts [
+    :name,
+    :nodes,
+    :monitor_nodes,
+    :node_blacklist,
+    :node_whitelist,
+    :node_type,
+    :node_weight
+  ]
 
   @spec child_spec(child_spec_options) :: Supervisor.child_spec()
   def child_spec(opts) do
@@ -82,6 +92,11 @@ defmodule HashRing.Managed do
     which match a pattern in the whitelist will result in the ring being updated.
   * `node_type: :all | :hidden | :visible`: refers what kind of nodes will be monitored
     when `monitor_nodes` is `true`. For more information, see `:net_kernel.monitor_nodes/2`.
+  * `node_weight: pos_integer` - The default weight to assign to nodes when no explicit weight
+    is provided. This applies to: initial nodes from the `nodes` configuration option,
+    nodes added automatically when `monitor_nodes` is `true`, and nodes added manually via
+    `add_node/2` and `add_nodes/2` APIs (but not those with explicit weights like `add_node/3`
+    or `{node, weight}` tuples). Defaults to `128`.
 
   An error is returned if the ring already exists or if bad ring options are provided.
 
@@ -115,6 +130,7 @@ defmodule HashRing.Managed do
             :node_blacklist when is_list(value) -> false
             :node_whitelist when is_list(value) -> false
             :node_type when value in [:all, :hidden, :visible] -> false
+            :node_weight when is_integer(value) and value > 0 -> false
             _ -> true
           end
       end)

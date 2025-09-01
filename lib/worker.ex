@@ -78,6 +78,7 @@ defmodule HashRing.Worker do
 
     ring = HashRing.new()
 
+    node_weight = Keyword.get(options, :node_weight, 128)
     monitor_nodes? = Keyword.get(options, :monitor_nodes, false)
 
     cond do
@@ -93,51 +94,53 @@ defmodule HashRing.Worker do
                 acc
 
               :else ->
-                HashRing.add_node(acc, node)
+                HashRing.add_node(acc, node, node_weight)
             end
           end)
 
         node_type = Keyword.get(options, :node_type, :all)
         :ok = :net_kernel.monitor_nodes(true, node_type: node_type)
         true = :ets.insert_new(table, {:ring, ring})
-        {:ok, {table, node_blacklist, node_whitelist}}
+        {:ok, {table, node_blacklist, node_whitelist, node_weight}}
 
       :else ->
         nodes = Keyword.get(options, :nodes, [])
+        nodes = apply_default_weights(nodes, node_weight)
         ring = HashRing.add_nodes(ring, nodes)
         true = :ets.insert_new(table, {:ring, ring})
-        {:ok, {table, [], []}}
+        {:ok, {table, [], [], node_weight}}
     end
   end
 
-  def handle_call(:list_nodes, _from, {table, _b, _w} = state) do
+  def handle_call(:list_nodes, _from, {table, _b, _w, _nw} = state) do
     {:reply, HashRing.nodes(get_ring(table)), state}
   end
 
-  def handle_call({:key_to_node, key}, _from, {table, _b, _w} = state) do
+  def handle_call({:key_to_node, key}, _from, {table, _b, _w, _nw} = state) do
     {:reply, HashRing.key_to_node(get_ring(table), key), state}
   end
 
-  def handle_call({:key_to_nodes, key, count}, _from, {table, _b, _w} = state) do
+  def handle_call({:key_to_nodes, key, count}, _from, {table, _b, _w, _nw} = state) do
     {:reply, HashRing.key_to_nodes(get_ring(table), key, count), state}
   end
 
-  def handle_call({:add_node, node}, _from, {table, _b, _w} = state) do
-    get_ring(table) |> HashRing.add_node(node) |> update_ring(table)
+  def handle_call({:add_node, node}, _from, {table, _b, _w, nw} = state) do
+    get_ring(table) |> HashRing.add_node(node, nw) |> update_ring(table)
     {:reply, :ok, state}
   end
 
-  def handle_call({:add_node, node, weight}, _from, {table, _b, _w} = state) do
+  def handle_call({:add_node, node, weight}, _from, {table, _b, _w, _nw} = state) do
     get_ring(table) |> HashRing.add_node(node, weight) |> update_ring(table)
     {:reply, :ok, state}
   end
 
-  def handle_call({:add_nodes, nodes}, _from, {table, _b, _w} = state) do
+  def handle_call({:add_nodes, nodes}, _from, {table, _b, _w, nw} = state) do
+    nodes = apply_default_weights(nodes, nw)
     get_ring(table) |> HashRing.add_nodes(nodes) |> update_ring(table)
     {:reply, :ok, state}
   end
 
-  def handle_call({:remove_node, node}, _from, {table, _b, _w} = state) do
+  def handle_call({:remove_node, node}, _from, {table, _b, _w, _nw} = state) do
     get_ring(table) |> HashRing.remove_node(node) |> update_ring(table)
     {:reply, :ok, state}
   end
@@ -147,15 +150,15 @@ defmodule HashRing.Worker do
     {:stop, :shutdown, state}
   end
 
-  def handle_info({:nodeup, node, _info}, {table, b, w} = state) do
+  def handle_info({:nodeup, node, _info}, {table, b, w, nw} = state) do
     unless HashRing.Utils.ignore_node?(node, b, w) do
-      get_ring(table) |> HashRing.add_node(node) |> update_ring(table)
+      get_ring(table) |> HashRing.add_node(node, nw) |> update_ring(table)
     end
 
     {:noreply, state}
   end
 
-  def handle_info({:nodedown, node, _info}, state = {table, _b, _w}) do
+  def handle_info({:nodedown, node, _info}, state = {table, _b, _w, _nw}) do
     get_ring(table) |> HashRing.remove_node(node) |> update_ring(table)
     {:noreply, state}
   end
@@ -182,4 +185,14 @@ defmodule HashRing.Worker do
 
   defp update_ring(ring, table),
     do: :ets.update_element(table, :ring, {2, ring})
+
+  defp apply_default_weights(nodes, default_weight) do
+    Enum.map(nodes, fn
+      {node, weight} ->
+        {node, weight}
+
+      node ->
+        {node, default_weight}
+    end)
+  end
 end
