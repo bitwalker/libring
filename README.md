@@ -131,6 +131,67 @@ Please ensure that you adhere to a commit style where logically related changes 
 eases review if necessary. Keep commit subject lines informative, but short, and provide additional detail in the extended message text
 if needed. If you can, mention relevant issue numbers in either the subject or the extended message.
 
+### CI and local checks
+
+Consumer compatibility remains Elixir 1.11 and later. CI checks the exact minimum,
+Elixir 1.11.0 / OTP 23.1.1, in a pinned container with a dependency-free smoke suite.
+Development tools have a newer minimum; the full suite runs on Elixir 1.17.3 /
+OTP 27.3.4.19 and Elixir 1.20.5 / OTP 29.1.2. Use `mise` to install and select
+alternate local runtimes without changing your global defaults, for example:
+
+```sh
+mise exec erlang@29.1.2 elixir@1.20.5 -- mix test
+```
+
+On the current development pair, run:
+
+```sh
+mix local.hex 2.6.0 --force
+mix deps.get --check-locked
+mix format --check-formatted
+MIX_ENV=test mix deps.compile
+MIX_ENV=test mix compile --warnings-as-errors
+mix test
+mix dialyzer
+MIX_ENV=docs mix deps.get --only docs --check-locked
+mix docs --warnings-as-errors
+mix deps.unlock --check-unused
+```
+
+Normal verification uses the checked-in dependency lock; dependency updates should
+be deliberate changes. CI restores caches for the exact runtime/environment and
+saves them only after successful default-branch pushes. Dialyzer's PLTs live in
+`_build/plts`, separate from global developer state.
+
+Workflow checks use actionlint 1.7.12, zizmor 1.31.1, and gh-actions-lock v0.4.0:
+
+```sh
+actionlint -color
+zizmor .github
+gh actions-lock --verify-local
+gh actions-lock --verify
+```
+
+Install the GitHub CLI extension with
+`gh extension install github/gh-actions-lock --pin v0.4.0` (upgrade an existing
+installation to that version if necessary). Online lock verification needs an
+authenticated `gh`; the offline check verifies coverage, not provenance.
+
+Actions are SHA-pinned, with release comments for review, and native
+`.github/workflows/actions.lock` also locks their transitive dependencies. After
+changing a workflow's action versions, run `gh actions-lock --no-narrow`, then
+review the workflow and lockfile diffs and rerun both analyzers. The `--no-narrow`
+option preserves SHA references rather than rewriting them to tags. No zizmor
+pinning exceptions are needed. Never automate `--accept-moved`; investigate
+unexpected upstream changes. Container images and shell-installed tools are
+pinned separately because the action lock does not cover them.
+
+Dependabot groups weekly action and Hex dependency updates with a seven-day
+cooldown. When updating shell-installed tools or the legacy container/Hex archive,
+update their versions and verified checksums/digests together. The legacy job
+checks out on a modern host and runs with read-only source and no container
+network access; it does not share the modern toolchain cache.
+
 ## Copyright and License
 
 Copyright (c) 2016 Paul Schoenfelder

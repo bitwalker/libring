@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    cooldown:
+      default-days: 7
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']
+  - package-ecosystem: mix
+    directory: /
+    cooldown:
+      default-days: 7
+    schedule:
+      interval: weekly
+    groups:
+      tooling:
+        patterns: ['*']

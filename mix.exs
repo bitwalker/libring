@@ -3,6 +3,7 @@ defmodule HashRing.Mixfile do
 
   @source_url "https://github.com/bitwalker/libring"
   @version "1.7.0"
+  @preferred_envs [docs: :docs, dialyzer: :test, "hex.publish": :docs]
 
   def project do
     [
@@ -16,14 +17,20 @@ defmodule HashRing.Mixfile do
       docs: docs(),
       deps: deps(),
       dialyzer: [
-        flags: ~w(-Wunmatched_returns -Werror_handling -Wno_opaque -Wunderspecs)
-      ],
-      preferred_cli_env: [
-        docs: :docs,
-        dialyzer: :test,
-        "hex.publish": :docs
+        flags: [:unmatched_returns, :error_handling, :no_opaque, :underspecs],
+        plt_local_path: "_build/plts",
+        plt_core_path: "_build/plts"
       ]
-    ]
+    ] ++ legacy_cli_config()
+  end
+
+  def cli, do: [preferred_envs: @preferred_envs]
+
+  # Mix versions before 1.15 do not read cli/0.
+  defp legacy_cli_config do
+    if Version.match?(System.version(), "< 1.15.0"),
+      do: [preferred_cli_env: @preferred_envs],
+      else: []
   end
 
   def application do
@@ -39,7 +46,7 @@ defmodule HashRing.Mixfile do
       # {:hash_ring, github: "voicelayer/hash-ring", only: :dev},
       # {:hash_ring, ">= 0.0.0", only: :dev},
 
-      {:ex_doc, ">= 0.0.0", only: [:docs]},
+      {:ex_doc, "~> 0.40", only: [:docs], runtime: false},
       {:benchee, "~> 1.0", only: [:dev]},
       {:dialyxir, "~> 1.0", only: [:test], runtime: false},
       {:stream_data, "~> 1.0", only: [:test]}

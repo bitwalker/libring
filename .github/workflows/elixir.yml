@@ -1,49 +1,144 @@
-name: elixir
+name: Elixir
 
 on:
   pull_request:
   push:
-    branches:
-      - main
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
-    runs-on: ubuntu-20.04
+    name: Test Elixir ${{ matrix.elixir }} / OTP ${{ matrix.otp }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     env:
       MIX_ENV: test
     strategy:
       fail-fast: false
       matrix:
         include:
-          - pair:
-              elixir: "1.17"
-              otp: "27"
-            lint: lint
+          - elixir: 1.17.3-otp-27
+            otp: 27.3.4.19
+          - elixir: 1.20.5-otp-29
+            otp: 29.1.2
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: erlef/setup-beam@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          otp-version: ${{matrix.pair.otp}}
-          elixir-version: ${{matrix.pair.elixir}}
+          persist-credentials: false
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        id: beam
+        with:
+          elixir-version: ${{ matrix.elixir }}
+          otp-version: ${{ matrix.otp }}
+          version-type: strict
+          install-hex: false
+          install-rebar: false
+      - name: Install Hex
+        run: mix local.hex 2.6.0 --force
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: cache
+        with:
+          path: |
+            deps
+            _build/test
+          key: test-${{ runner.os }}-${{ runner.arch }}-${{ steps.beam.outputs.elixir-version }}-${{ steps.beam.outputs.otp-version }}-${{ hashFiles('mix.lock') }}
+      - name: Fetch locked dependencies
+        run: mix deps.get --only test --check-locked
+      - name: Compile and test
+        run: |
+          mix deps.compile
+          mix compile --warnings-as-errors
+          mix test
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            deps
+            _build/test
+          key: ${{ steps.cache.outputs.cache-primary-key }}
 
-      - uses: actions/cache@v4
+  quality:
+    name: Format, types, and docs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      MIX_ENV: test
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        id: beam
+        with:
+          elixir-version: 1.20.5-otp-29
+          otp-version: 29.1.2
+          version-type: strict
+          install-hex: false
+          install-rebar: false
+      - name: Install Hex
+        run: mix local.hex 2.6.0 --force
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: cache
         with:
           path: |
             deps
             _build
-          key: ${{ runner.os }}-mix-${{matrix.pair.elixir}}-${{matrix.pair.otp}}-${{ hashFiles('**/mix.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-mix-${{matrix.pair.elixir}}-${{matrix.pair.otp}}-
+          key: quality-${{ runner.os }}-${{ runner.arch }}-${{ steps.beam.outputs.elixir-version }}-${{ steps.beam.outputs.otp-version }}-${{ hashFiles('mix.lock', 'mix.exs', 'lib/**') }}
+      - name: Check formatting and dependency lock
+        run: |
+          sha256sum mix.lock > "$RUNNER_TEMP/mix.lock.sha256"
+          mix deps.get --check-locked
+          mix deps.unlock --check-unused
+          mix format --check-formatted
+          sha256sum --check "$RUNNER_TEMP/mix.lock.sha256"
+      - name: Check types
+        run: mix dialyzer
+      - name: Build documentation
+        env:
+          MIX_ENV: docs
+        run: |
+          mix deps.get --only docs --check-locked
+          mix docs --warnings-as-errors
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.cache.outputs.cache-hit != 'true'
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ steps.cache.outputs.cache-primary-key }}
 
-      - run: mix deps.get --only test
-
-      - run: mix format --check-formatted
-        if: ${{ matrix.lint }}
-
-      - run: mix deps.get && mix deps.unlock --check-unused
-        if: ${{ matrix.lint }}
-
-      - run: mix deps.compile
-
-      - run: mix test
+  compatibility:
+    name: Consumer Elixir 1.11.0 / OTP 23.1.1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Fetch compatible Hex archive
+        run: |
+          curl --fail --silent --show-error --location \
+            https://builds.hex.pm/installs/1.11.0/hex-2.2.1.ez \
+            --output "$RUNNER_TEMP/hex-2.2.1.ez"
+          echo "70231f47799d9132292414cd84133406497b8cf49df4ca2a6b376e99775188304ae04a879e30e6b62091d521c1d27a1629bc0386085e42727ece0dcfad95eaf2  $RUNNER_TEMP/hex-2.2.1.ez" | sha512sum --check --strict
+      - name: Compile and exercise the minimum consumer runtime
+        run: |
+          docker run --rm --platform linux/amd64 --network none \
+            --mount "type=bind,src=$PWD,dst=/source,readonly" \
+            --mount "type=bind,src=$RUNNER_TEMP/hex-2.2.1.ez,dst=/hex.ez,readonly" \
+            --workdir /tmp/libring \
+            --env MIX_ENV=prod --env MIX_HOME=/tmp/mix \
+            --env EXPECTED_ELIXIR=1.11.0 --env EXPECTED_OTP=23 \
+            hexpm/elixir:1.11.0-erlang-23.1.1-debian-bullseye-20260610-slim@sha256:8fdd5a8e3ef2841e161458dec0f73f72ffa52f99594105ef42ab3f474d8a5b4b \
+            sh -ec 'cp /source/mix.exs /source/mix.lock .
+                    cp -R /source/lib .
+                    mix archive.install /hex.ez --force
+                    mix compile --warnings-as-errors
+                    mix run --no-compile /source/.github/scripts/consumer-smoke.exs'
