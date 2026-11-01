@@ -23,6 +23,7 @@ defmodule HashRing.Managed do
   @type node_list :: [term() | {term(), weight}]
   @type pattern_list :: [String.t() | Regex.t()]
   @type ring_options :: [
+          name: atom(),
           nodes: node_list,
           monitor_nodes: boolean,
           node_blacklist: pattern_list,
@@ -31,7 +32,8 @@ defmodule HashRing.Managed do
         ]
 
   @type child_spec_option ::
-          {:id, atom() | term()}
+          {:name, atom()}
+          | {:id, term()}
           | {:start, {module, function_name :: atom, args :: [term]}}
           | {:restart, :permanent | :transient | :temporary}
           | {:shutdown, timeout() | :brutal_kill}
@@ -42,6 +44,7 @@ defmodule HashRing.Managed do
           | {:monitor_nodes, boolean}
           | {:node_blacklist, pattern_list}
           | {:node_whitelist, pattern_list}
+          | {:node_type, :all | :hidden | :visible}
 
   @type child_spec_options :: [child_spec_option()]
 
@@ -56,10 +59,24 @@ defmodule HashRing.Managed do
         id: opts[:id] || opts[:name],
         type: :worker,
         restart: :permanent,
-        start: {__MODULE__, :run, [opts[:name], Keyword.take(opts, @valid_ring_opts)]}
+        modules: [HashRing.Worker],
+        start: {__MODULE__, :start_link, [Keyword.take(opts, @valid_ring_opts)]}
       },
       Map.new(Keyword.drop(opts, @valid_ring_opts))
     )
+  end
+
+  @doc """
+  Starts a managed ring linked to the calling process.
+
+  This is the startup entry point used by `child_spec/1`. The `:name` option is
+  required; other ring options are the same as for `new/2`. The calling supervisor
+  owns the worker's restart and shutdown lifecycle.
+  """
+  @spec start_link(ring_options) :: GenServer.on_start()
+  def start_link(opts) when is_list(opts) do
+    validate_ring_options!(opts)
+    HashRing.Worker.start_link(opts)
   end
 
   @doc """
@@ -104,7 +121,18 @@ defmodule HashRing.Managed do
           {:ok, pid} | {:error, {:already_started, pid}} | {:error, {:invalid_option, term}}
   def new(name, ring_options \\ []) when is_list(ring_options) do
     opts = [{:name, name} | ring_options]
+    validate_ring_options!(opts)
 
+    case Process.whereis(:"libring_#{name}") do
+      nil ->
+        DynamicSupervisor.start_child(HashRing.Supervisor, {HashRing.Worker, opts})
+
+      pid ->
+        {:error, {:already_started, pid}}
+    end
+  end
+
+  defp validate_ring_options!(opts) do
     invalid =
       Enum.find(opts, fn
         {key, value} when key in @valid_ring_opts ->
@@ -121,13 +149,7 @@ defmodule HashRing.Managed do
 
     case invalid do
       nil ->
-        case Process.whereis(:"libring_#{name}") do
-          nil ->
-            DynamicSupervisor.start_child(HashRing.Supervisor, {HashRing.Worker, opts})
-
-          pid ->
-            {:error, {:already_started, pid}}
-        end
+        :ok
 
       _ ->
         raise ArgumentError,

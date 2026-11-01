@@ -24,4 +24,22 @@ defmodule TestCluster do
   end
 end
 
+defmodule HashRing.TestSupport do
+  def assert_eventually(assertion, timeout \\ 1_000) do
+    retry_assertion(assertion, System.monotonic_time(:millisecond) + timeout)
+  end
+
+  defp retry_assertion(assertion, deadline) do
+    assertion.()
+  rescue
+    error in ExUnit.AssertionError ->
+      if System.monotonic_time(:millisecond) < deadline do
+        Process.sleep(10)
+        retry_assertion(assertion, deadline)
+      else
+        reraise error, __STACKTRACE__
+      end
+  end
+end
+
 ExUnit.start()
