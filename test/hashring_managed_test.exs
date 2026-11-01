@@ -90,4 +90,19 @@ defmodule HashRing.ManagedTest do
              :b@localhost
            ]
   end
+
+  test "all managed lookup forms agree on primary owners for atom and compound keys" do
+    {:ok, pid} = HashRing.Managed.new(:consistent_hashing)
+    on_exit(fn -> DynamicSupervisor.terminate_child(HashRing.Supervisor, pid) end)
+    :ok = HashRing.Managed.add_nodes(pid, [:a@localhost, :b@localhost])
+    ring = HashRing.new() |> HashRing.add_nodes([:a@localhost, :b@localhost])
+
+    for key <- [:key_0, nil, true, false, "key", 13, {:tuple, [1, 2]}],
+        count <- [1, 2, 5],
+        managed <- [pid, :consistent_hashing] do
+      expected = HashRing.key_to_node(ring, key)
+      assert HashRing.Managed.key_to_node(managed, key) == expected
+      assert hd(HashRing.Managed.key_to_nodes(managed, key, count)) == expected
+    end
+  end
 end

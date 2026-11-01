@@ -198,12 +198,8 @@ defmodule HashRing do
   def key_to_node(%__MODULE__{nodes: []}, _key),
     do: {:error, {:invalid_ring, :no_nodes}}
 
-  # Convert atoms to binaries, as phash does not distribute them evenly
-  def key_to_node(ring, key) when is_atom(key),
-    do: key_to_node(ring, :erlang.term_to_binary(key))
-
   def key_to_node(%__MODULE__{ring: r}, key) do
-    hash = :erlang.phash2(key, @hash_range)
+    hash = hash_key(key)
 
     case :gb_trees.iterator_from(hash, r) |> :gb_trees.next() do
       {_key, node, _} ->
@@ -219,6 +215,9 @@ defmodule HashRing do
   Determines which nodes owns a given key. Will return either `count` results or
   the number of nodes, depending on which is smaller.
 
+  Results follow clockwise order, with the same primary owner as `key_to_node/2`.
+  Atom keys use the same binary normalization in both lookup functions.
+
   This function assumes that the ring has been populated with at least one node.
 
   ## Examples
@@ -228,7 +227,7 @@ defmodule HashRing do
       ...> ring = HashRing.add_node(ring, "b")
       ...> ring = HashRing.add_node(ring, "c")
       ...> HashRing.key_to_nodes(ring, :foo, 2)
-      ["b", "c"]
+      ["c", "a"]
 
       iex> ring = HashRing.new()
       ...> HashRing.key_to_nodes(ring, :foo, 1)
@@ -241,11 +240,15 @@ defmodule HashRing do
     do: {:error, {:invalid_ring, :no_nodes}}
 
   def key_to_nodes(%__MODULE__{nodes: nodes, ring: r}, key, count) do
-    hash = :erlang.phash2(key, @hash_range)
+    hash = hash_key(key)
     count = min(length(nodes), count)
     iter = :gb_trees.iterator_from(hash, r)
     find_nodes_from_iter(iter, r, count, :gb_trees.size(r), [])
   end
+
+  # Convert atoms to binaries, as phash does not distribute them evenly.
+  defp hash_key(key) when is_atom(key), do: hash_key(:erlang.term_to_binary(key))
+  defp hash_key(key), do: :erlang.phash2(key, @hash_range)
 
   # Visit at most one complete ring, even if collisions left a listed node without shards.
   defp find_nodes_from_iter(_iter, _ring, count, points_remaining, results)

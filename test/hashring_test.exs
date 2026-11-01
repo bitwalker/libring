@@ -24,6 +24,23 @@ defmodule HashRingTest do
     assert HashRing.key_to_nodes(ring, 14, 2) == [:a@localhost, :b@localhost]
   end
 
+  test "single and multiple lookup preserve the existing atom-key primary owner" do
+    ring = HashRing.new() |> HashRing.add_nodes([:a@localhost, :b@localhost])
+    assert HashRing.key_to_node(ring, :key_0) == :a@localhost
+    assert HashRing.key_to_nodes(ring, :key_0, 1) == [:a@localhost]
+    assert HashRing.key_to_nodes(ring, :key_0, 2) == [:a@localhost, :b@localhost]
+  end
+
+  property "the first selected replica is the primary owner for every key type" do
+    check all(
+            key <- one_of([member_of([:key_0, nil, true, false]), integer(), binary(), term()]),
+            count <- integer(1..5)
+          ) do
+      ring = HashRing.new() |> HashRing.add_nodes(["a", "b", "c"])
+      assert hd(HashRing.key_to_nodes(ring, key, count)) == HashRing.key_to_node(ring, key)
+    end
+  end
+
   test "key_to_nodes/3 selects distinct owners in clockwise order across either boundary" do
     ring = %HashRing{
       nodes: [:a, :b, :c],
