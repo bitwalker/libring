@@ -243,30 +243,26 @@ defmodule HashRing do
   def key_to_nodes(%__MODULE__{nodes: nodes, ring: r}, key, count) do
     hash = :erlang.phash2(key, @hash_range)
     count = min(length(nodes), count)
-
-    case :gb_trees.iterator_from(hash, r) |> :gb_trees.next() do
-      {_key, node, iter} ->
-        find_nodes_from_iter(iter, count - 1, [node])
-
-      _ ->
-        {_key, node} = :gb_trees.smallest(r)
-        [node]
-    end
+    iter = :gb_trees.iterator_from(hash, r)
+    find_nodes_from_iter(iter, r, count, :gb_trees.size(r), [])
   end
 
-  defp find_nodes_from_iter(_iter, 0, results), do: Enum.reverse(results)
+  # Visit at most one complete ring, even if collisions left a listed node without shards.
+  defp find_nodes_from_iter(_iter, _ring, count, points_remaining, results)
+       when count == 0 or points_remaining == 0,
+       do: Enum.reverse(results)
 
-  defp find_nodes_from_iter(iter, count, results) do
+  defp find_nodes_from_iter(iter, ring, count, points_remaining, results) do
     case :gb_trees.next(iter) do
       {_key, node, iter} ->
         if node in results do
-          find_nodes_from_iter(iter, count, results)
+          find_nodes_from_iter(iter, ring, count, points_remaining - 1, results)
         else
-          find_nodes_from_iter(iter, count - 1, [node | results])
+          find_nodes_from_iter(iter, ring, count - 1, points_remaining - 1, [node | results])
         end
 
-      _ ->
-        results
+      :none ->
+        find_nodes_from_iter(:gb_trees.iterator(ring), ring, count, points_remaining, results)
     end
   end
 end

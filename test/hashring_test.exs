@@ -19,6 +19,52 @@ defmodule HashRingTest do
     assert length(nodes) == 2
   end
 
+  test "key_to_nodes/3 wraps for issue 39" do
+    ring = HashRing.new() |> HashRing.add_nodes([:a@localhost, :b@localhost])
+    assert HashRing.key_to_nodes(ring, 14, 2) == [:a@localhost, :b@localhost]
+  end
+
+  test "key_to_nodes/3 selects distinct owners in clockwise order across either boundary" do
+    ring = %HashRing{
+      nodes: [:a, :b, :c],
+      ring:
+        :gb_trees.from_orddict([
+          {1_000_000_000, :a},
+          {2_000_000_000, :a},
+          {3_000_000_000, :b},
+          {4_000_000_000, :c}
+        ])
+    }
+
+    # These integer hashes start before the first point, between points, and after the last.
+    for {key, expected} <- [{13, [:a, :b, :c]}, {2, [:b, :c, :a]}, {14, [:a, :b, :c]}],
+        count <- [1, 2, 3, 10] do
+      assert HashRing.key_to_nodes(ring, key, count) == Enum.take(expected, count)
+    end
+  end
+
+  @tag timeout: 1_000
+  test "key_to_nodes/3 finishes a full traversal even if a listed node owns no shards" do
+    ring = %HashRing{nodes: [:a, :b], ring: :gb_trees.from_orddict([{1, :a}])}
+    assert HashRing.key_to_nodes(ring, 14, 2) == [:a]
+  end
+
+  property "multi-node lookup returns the requested number of distinct ring members" do
+    check all(
+            nodes <- uniq_list_of(integer(), min_length: 1, max_length: 8),
+            key <- integer(),
+            count <- integer(1..20)
+          ) do
+      weighted = Enum.with_index(nodes, 1)
+      ring = HashRing.new() |> HashRing.add_nodes(weighted)
+      selected = HashRing.key_to_nodes(ring, key, count)
+      assert length(selected) == min(count, length(nodes))
+      assert Enum.uniq(selected) == selected
+      assert Enum.all?(selected, &(&1 in nodes))
+      assert HashRing.key_to_nodes(ring, key, count) == selected
+    end
+  end
+
   property "adding one node leaves us with a tree with one node" do
     check all(name <- string(:printable, min_length: 1)) do
       %HashRing{nodes: nodes} = HashRing.new(name)
