@@ -10,8 +10,8 @@ defmodule HashRing.Managed do
   monitor node up/down events and update the hash ring accordingly, with a default weight,
   and either whitelist or blacklist nodes from the ring. You configure this at the ring level in your `config.exs`.
 
-  Each ring is configured in `config.exs`, and can contain a list of nodes to seed the ring with,
-  and you can then dynamically add/remove nodes to the ring using the API here. Each node on the ring can
+  Static rings can be configured in `config.exs` with a list of initial nodes,
+  and you can then add/remove nodes using the API here. Each node on the ring can
   be configured with a weight, which affects the amount of the total keyspace it owns. The default weight
   is `128`. It's best to base the weight of nodes on some concrete relative value, such as the amount of
   memory a node has.
@@ -95,7 +95,7 @@ defmodule HashRing.Managed do
   It takes an optional set of options which control how the ring behaves.
   Valid options are as follows:
 
-  * `nodes: list` - a list of nodes to initialize the ring.
+  * `nodes: list` - a list of initial nodes for a static ring (`monitor_nodes: false`).
   * `monitor_nodes: boolean` - will automatically monitor Erlang node membership,
     if new nodes are connected or nodes are disconnected, the ring will be updated automatically.
     In this configuration, valid manual add/remove requests return `:ok` without changing membership.
@@ -160,19 +160,28 @@ defmodule HashRing.Managed do
     end)
   end
 
+  @spec invalid_option!(term(), String.t()) :: no_return()
   defp invalid_option!(option, caller),
     do: raise(ArgumentError, "#{inspect(option)} is an invalid option for `#{caller}`")
 
   defp valid_ring_option?({:name, name}), do: is_atom(name)
-  defp valid_ring_option?({:nodes, nodes}) when is_list(nodes), do: node_entry_errors(nodes) == []
+
+  defp valid_ring_option?({:nodes, nodes}) when is_list(nodes),
+    do: proper_list?(nodes) and node_entry_errors(nodes) == []
+
   defp valid_ring_option?({:monitor_nodes, enabled}), do: is_boolean(enabled)
 
   defp valid_ring_option?({key, patterns})
        when key in [:node_blacklist, :node_whitelist] and is_list(patterns),
-       do: Enum.all?(patterns, &(is_binary(&1) or is_struct(&1, Regex)))
+       do:
+         proper_list?(patterns) and Enum.all?(patterns, &(is_binary(&1) or is_struct(&1, Regex)))
 
   defp valid_ring_option?({:node_type, type}), do: type in [:all, :hidden, :visible]
   defp valid_ring_option?(_), do: false
+
+  defp proper_list?([]), do: true
+  defp proper_list?([_ | tail]), do: proper_list?(tail)
+  defp proper_list?(_), do: false
 
   defp node_entry_errors(nodes),
     do: nodes |> Enum.map(&node_entry_error/1) |> Enum.reject(&is_nil/1)
@@ -289,6 +298,9 @@ defmodule HashRing.Managed do
           | {:error, :no_such_ring}
           | {:error, [{:invalid_weight, key, term}]}
   def add_nodes(ring, nodes) when is_list(nodes) do
+    unless proper_list?(nodes),
+      do: raise(ArgumentError, "HashRing.Managed.add_nodes/2 expects a proper list")
+
     invalid = node_entry_errors(nodes)
     if :empty_node in invalid, do: raise(ArgumentError, @empty_node_message)
 

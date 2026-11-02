@@ -18,7 +18,15 @@ defmodule HashRing.ManagedTest do
     end
 
     test "rejects unknown, malformed, and semantically invalid startup options intentionally" do
-      for opts <- [[unknown: true], [:malformed], [nodes: [a: 0]], [node_blacklist: [123]]] do
+      for opts <- [
+            [unknown: true],
+            [:malformed],
+            [nodes: [a: 0]],
+            [node_blacklist: [123]],
+            [nodes: [:valid | :bad]],
+            [node_blacklist: ["valid" | :bad]],
+            [node_whitelist: [~r/valid/ | :bad]]
+          ] do
         assert_raise ArgumentError, fn -> HashRing.Managed.new(:invalid_config, opts) end
 
         assert_raise ArgumentError, fn ->
@@ -49,6 +57,18 @@ defmodule HashRing.ManagedTest do
       for weight <- [0, -1, 1.5, :wrong, nil, {}] do
         assert HashRing.Managed.add_nodes(pid, [123, {"bad", weight}]) ==
                  {:error, [{:invalid_weight, "bad", weight}]}
+
+        assert HashRing.Managed.nodes(pid) == ["existing"]
+      end
+    end
+
+    test "rejects improper bulk lists before changing membership" do
+      pid = start_supervised!({HashRing.Managed, name: :improper_bulk, nodes: ["existing"]})
+
+      for ring <- [pid, :improper_bulk, :missing_ring] do
+        assert_raise ArgumentError, fn ->
+          HashRing.Managed.add_nodes(ring, ["new" | :bad])
+        end
 
         assert HashRing.Managed.nodes(pid) == ["existing"]
       end
