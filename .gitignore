@@ -28,3 +28,5 @@ libring-*.tar
 # Misc.
 .eqc-info
 current_counterexample.eqc
+
+.tool-versions
