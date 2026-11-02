@@ -1,11 +1,11 @@
 defmodule HashRing do
   @moduledoc """
   This module defines an API for creating/manipulating a hash ring.
-  The internal data structure for the hash ring is actually a gb_tree, which provides
+  The hash ring uses Erlang's balanced `:gb_trees` structure, which provides
   fast lookups for a given key on the ring.
 
-  - The ring is a continuum of 2^32 "points", or integer values.
-  - Nodes are sharded into 128 points, and distributed across the ring.
+  - The hash range contains integer points from 0 through 2^32-2.
+  - Nodes have a default weight of 128 virtual points, distributed across the ring.
   - Each shard owns the keyspace below it.
   - Keys are hashed and assigned a point on the ring, the node for a given
     ring is determined by finding the next highest point on the ring for a shard,
@@ -212,7 +212,7 @@ defmodule HashRing do
   end
 
   @doc """
-  Determines which nodes owns a given key. Will return either `count` results or
+  Determines which nodes own a given key. Will return either `count` results or
   the number of nodes, depending on which is smaller.
 
   Results follow clockwise order, with the same primary owner as `key_to_node/2`.

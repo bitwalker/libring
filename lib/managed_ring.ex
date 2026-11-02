@@ -217,7 +217,8 @@ defmodule HashRing.Managed do
   @doc """
   Adds a node to the given hash ring.
 
-  An error is returned if the ring does not exist, or the node already exists in the ring.
+  An error is returned if the ring does not exist. Adding an existing node returns
+  `:ok` without changing its weight or the ring.
 
   ## Examples
 

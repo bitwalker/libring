@@ -8,4 +8,4 @@ I'll review the commits, so I mostly want to understand the "why" rather than th
 - [ ] Same for documentation, including moduledocs
 - [ ] Tests were added or updated to cover changes
 - [ ] Commits were squashed into a single coherent commit
-- [ ] Notes added to CHANGELOG file which describe changes at a high-level
+- [ ] User-visible changes and compatibility notes added under Unreleased in CHANGELOG.md

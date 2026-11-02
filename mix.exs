@@ -55,7 +55,7 @@ defmodule HashRing.Mixfile do
 
   defp package do
     [
-      files: ["lib", "mix.exs", "README.md", "LICENSE.md"],
+      files: ["lib", "mix.exs", "README.md", "CHANGELOG.md", "LICENSE.md"],
       maintainers: ["Paul Schoenfelder"],
       licenses: ["MIT"],
       links: %{GitHub: @source_url}
@@ -64,11 +64,11 @@ defmodule HashRing.Mixfile do
 
   defp docs do
     [
-      extras: [{:"README.md", [title: "Overview"]}],
+      extras: [{:"README.md", [title: "Overview"]}, "CHANGELOG.md"],
       main: "readme",
       formatter_opts: [gfm: true],
       source_url: @source_url,
-      source_ref: @version
+      source_ref: System.get_env("DOCS_SOURCE_REF", "main")
     ]
   end
 end

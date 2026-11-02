@@ -103,6 +103,7 @@ jobs:
       - name: Build documentation
         env:
           MIX_ENV: docs
+          DOCS_SOURCE_REF: ${{ github.sha }}
         run: |
           mix deps.get --only docs --check-locked
           mix docs --warnings-as-errors
