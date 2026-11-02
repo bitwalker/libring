@@ -49,9 +49,17 @@ defmodule HashRing.Managed do
   @type child_spec_options :: [child_spec_option()]
 
   @valid_ring_opts [:name, :nodes, :monitor_nodes, :node_blacklist, :node_whitelist, :node_type]
+  @valid_child_spec_opts [:id, :start, :restart, :shutdown, :type, :modules, :significant]
+  @empty_node_message "Node keys cannot be empty strings"
 
   @spec child_spec(child_spec_options) :: Supervisor.child_spec()
   def child_spec(opts) do
+    validate_option_keys!(
+      opts,
+      @valid_ring_opts ++ @valid_child_spec_opts,
+      "HashRing.Managed.child_spec/1"
+    )
+
     opts = Keyword.put_new(opts, :name, :hash_ring_manager)
 
     Map.merge(
@@ -75,7 +83,7 @@ defmodule HashRing.Managed do
   """
   @spec start_link(ring_options) :: GenServer.on_start()
   def start_link(opts) when is_list(opts) do
-    validate_ring_options!(opts)
+    validate_ring_options!(opts, "HashRing.Managed.start_link/1")
     HashRing.Worker.start_link(opts)
   end
 
@@ -100,7 +108,7 @@ defmodule HashRing.Managed do
   * `node_type: :all | :hidden | :visible`: refers what kind of nodes will be monitored
     when `monitor_nodes` is `true`. For more information, see `:net_kernel.monitor_nodes/2`.
 
-  An error is returned if the ring already exists or if bad ring options are provided.
+  An error is returned if the ring already exists. Invalid options raise `ArgumentError`.
 
   ## Examples
 
@@ -116,9 +124,8 @@ defmodule HashRing.Managed do
       ** (ArgumentError) {:nodes, "a"} is an invalid option for `HashRing.Managed.new/2`
 
   """
-  @spec new(ring) :: {:ok, pid} | {:error, {:already_started, pid}}
-  @spec new(ring, ring_options) ::
-          {:ok, pid} | {:error, {:already_started, pid}} | {:error, {:invalid_option, term}}
+  @spec new(atom()) :: {:ok, pid} | {:error, term()}
+  @spec new(atom(), ring_options) :: {:ok, pid} | {:error, term()}
   def new(name, ring_options \\ []) when is_list(ring_options) do
     opts = [{:name, name} | ring_options]
     validate_ring_options!(opts)
@@ -132,29 +139,53 @@ defmodule HashRing.Managed do
     end
   end
 
-  defp validate_ring_options!(opts) do
-    invalid =
-      Enum.find(opts, fn
-        {key, value} when key in @valid_ring_opts ->
-          case key do
-            :name when is_atom(value) -> false
-            :nodes when is_list(value) -> Keyword.keyword?(value)
-            :monitor_nodes when is_boolean(value) -> false
-            :node_blacklist when is_list(value) -> false
-            :node_whitelist when is_list(value) -> false
-            :node_type when value in [:all, :hidden, :visible] -> false
-            _ -> true
-          end
-      end)
+  defp validate_ring_options!(opts, caller \\ "HashRing.Managed.new/2") do
+    validate_option_keys!(opts, @valid_ring_opts, caller)
 
-    case invalid do
-      nil ->
-        :ok
+    unless Keyword.has_key?(opts, :name), do: raise(ArgumentError, "#{caller} requires :name")
 
-      _ ->
-        raise ArgumentError,
-          message: "#{inspect(invalid)} is an invalid option for `HashRing.Managed.new/2`"
-    end
+    Enum.each(opts, fn option ->
+      unless valid_ring_option?(option), do: invalid_option!(option, caller)
+    end)
+  end
+
+  defp validate_option_keys!(opts, keys, caller) do
+    unless Keyword.keyword?(opts),
+      do: raise(ArgumentError, "#{caller} expects a keyword list, got: #{inspect(opts)}")
+
+    Enum.each(opts, fn {key, _} = option ->
+      unless key in keys, do: invalid_option!(option, caller)
+    end)
+  end
+
+  defp invalid_option!(option, caller),
+    do: raise(ArgumentError, "#{inspect(option)} is an invalid option for `#{caller}`")
+
+  defp valid_ring_option?({:name, name}), do: is_atom(name)
+  defp valid_ring_option?({:nodes, nodes}) when is_list(nodes), do: node_entry_errors(nodes) == []
+  defp valid_ring_option?({:monitor_nodes, enabled}), do: is_boolean(enabled)
+
+  defp valid_ring_option?({key, patterns})
+       when key in [:node_blacklist, :node_whitelist] and is_list(patterns),
+       do: Enum.all?(patterns, &(is_binary(&1) or is_struct(&1, Regex)))
+
+  defp valid_ring_option?({:node_type, type}), do: type in [:all, :hidden, :visible]
+  defp valid_ring_option?(_), do: false
+
+  defp node_entry_errors(nodes),
+    do: nodes |> Enum.map(&node_entry_error/1) |> Enum.reject(&is_nil/1)
+
+  defp node_entry_error({node, weight}) when is_integer(weight) and weight > 0,
+    do: node_key_error(node)
+
+  defp node_entry_error({node, weight}), do: {:invalid_weight, node, weight}
+  defp node_entry_error(node), do: node_key_error(node)
+  defp node_key_error(""), do: :empty_node
+  defp node_key_error(_), do: nil
+
+  defp validate_node_key!(node) do
+    if node_key_error(node), do: raise(ArgumentError, @empty_node_message)
+    :ok
   end
 
   @doc """
@@ -189,6 +220,7 @@ defmodule HashRing.Managed do
   """
   @spec add_node(ring, key) :: :ok | {:error, :no_such_ring}
   def add_node(ring, node) do
+    validate_node_key!(node)
     HashRing.Worker.add_node(ring, node)
   end
 
@@ -218,6 +250,7 @@ defmodule HashRing.Managed do
           | {:error, {:invalid_weight, key, term}}
   def add_node(ring, node, weight)
       when is_integer(weight) and weight > 0 do
+    validate_node_key!(node)
     HashRing.Worker.add_node(ring, node, weight)
   end
 
@@ -231,6 +264,11 @@ defmodule HashRing.Managed do
   The list of nodes can contain either node names or `{node_name, weight}`
   tuples. If there is an error with any of the node weights, an error will
   be returned, and the ring will remain unchanged.
+
+  Two-tuples are always interpreted as weighted entries here, including when
+  their weights are invalid. To use a two-tuple as a node key, wrap it in an
+  explicitly weighted entry, such as `{{:region, :node}, 128}`. Other bare terms
+  are accepted as node keys. Empty binary keys raise `ArgumentError` before mutation.
 
   ## Examples
 
@@ -249,27 +287,15 @@ defmodule HashRing.Managed do
           | {:error, :no_such_ring}
           | {:error, [{:invalid_weight, key, term}]}
   def add_nodes(ring, nodes) when is_list(nodes) do
-    invalid =
-      Enum.filter(nodes, fn
-        {_node, weight} when is_integer(weight) and weight > 0 ->
-          false
-
-        {_node, _weight} ->
-          true
-
-        node when is_binary(node) or is_atom(node) ->
-          false
-
-        _node ->
-          true
-      end)
+    invalid = node_entry_errors(nodes)
+    if :empty_node in invalid, do: raise(ArgumentError, @empty_node_message)
 
     case invalid do
       [] ->
         HashRing.Worker.add_nodes(ring, nodes)
 
       _ ->
-        {:error, Enum.map(invalid, fn {k, v} -> {:invalid_weight, k, v} end)}
+        {:error, invalid}
     end
   end
 
