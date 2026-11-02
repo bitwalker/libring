@@ -98,7 +98,9 @@ defmodule HashRing.Managed do
   * `nodes: list` - a list of nodes to initialize the ring.
   * `monitor_nodes: boolean` - will automatically monitor Erlang node membership,
     if new nodes are connected or nodes are disconnected, the ring will be updated automatically.
-    In this configuration, nodes cannot be added or removed via the API. Those requests will be ignored.
+    In this configuration, valid manual add/remove requests return `:ok` without changing membership.
+    The local node is included unless filtered out, regardless of `node_type`; that option selects
+    which remote node types are included at startup and monitored afterward.
   * `node_blacklist: [String.t | Regex.t]` - Used in conjunction with `monitor_nodes: true`, this
     is a list of patterns, either as literal strings, or as regex patterns (in either string or literal form),
     and will be used to ignore nodeup/down events for nodes which are blacklisted. If a node whitelist

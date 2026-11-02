@@ -1,22 +1,25 @@
 defmodule TestCluster do
-  def start_node(name) do
-    :peer.start_link(%{name: name})
+  def start_node(prefix, type \\ :visible) do
+    name = ~c"#{prefix}_#{System.unique_integer([:positive])}"
+    args = if type == :hidden, do: [~c"-hidden"], else: []
+    # Explicit cleanup owns the controller; it must survive the test process exiting.
+    {:ok, peer, node} = :peer.start(%{name: name, args: args})
+    ExUnit.Callbacks.on_exit(fn -> stop_node(peer) end)
+    {:ok, peer, node}
   end
 
-  def start_node(name, :hidden) do
-    :peer.start_link(%{name: name, args: [~c"-hidden"]})
-  end
-
-  def stop_node(node) do
-    :peer.stop(node)
+  def stop_node(peer) do
+    if Process.alive?(peer), do: :peer.stop(peer)
   end
 
   def prepare do
-    :ok = :net_kernel.monitor_nodes(true)
-
-    _ = :os.cmd(~c"epmd -daemon")
-
-    {:ok, _} = Node.start(:test_cluster@localhost, :shortnames)
+    if Node.alive?() do
+      false
+    else
+      {_, 0} = System.cmd("epmd", ["-daemon"])
+      {:ok, _} = Node.start(:"libring_tests_#{System.pid()}", :shortnames)
+      true
+    end
   end
 
   def teardown do

@@ -2,6 +2,8 @@ defmodule HashRing.Worker do
   @moduledoc false
   use GenServer
 
+  defstruct [:table, monitor_nodes: false, node_blacklist: [], node_whitelist: []]
+
   def nodes(pid_or_name)
 
   def nodes(pid) when is_pid(pid) do
@@ -76,68 +78,65 @@ defmodule HashRing.Worker do
         {:read_concurrency, true}
       ])
 
-    ring = HashRing.new()
+    state = %__MODULE__{table: table, monitor_nodes: Keyword.get(options, :monitor_nodes, false)}
 
-    monitor_nodes? = Keyword.get(options, :monitor_nodes, false)
-
-    cond do
-      monitor_nodes? ->
-        nodes = [Node.self() | Node.list(:connected)]
-        node_blacklist = Keyword.get(options, :node_blacklist, [~r/^remsh.*$/, ~r/^rem-.*$/])
-        node_whitelist = Keyword.get(options, :node_whitelist, [])
-
-        ring =
-          Enum.reduce(nodes, ring, fn node, acc ->
-            cond do
-              HashRing.Utils.ignore_node?(node, node_blacklist, node_whitelist) ->
-                acc
-
-              :else ->
-                HashRing.add_node(acc, node)
-            end
-          end)
+    {ring, state} =
+      if state.monitor_nodes do
+        state = %{
+          state
+          | node_blacklist: Keyword.get(options, :node_blacklist, [~r/^remsh.*$/, ~r/^rem-.*$/]),
+            node_whitelist: Keyword.get(options, :node_whitelist, [])
+        }
 
         node_type = Keyword.get(options, :node_type, :all)
+        # Subscribe first: events overlapping the snapshot are replayed idempotently.
         :ok = :net_kernel.monitor_nodes(true, node_type: node_type)
-        true = :ets.insert_new(table, {:ring, ring})
-        {:ok, {table, node_blacklist, node_whitelist}}
+        # The monitoring API calls this :all; nodes/1 calls the same peer set :connected.
+        snapshot_type = if node_type == :all, do: :connected, else: node_type
+        nodes = [Node.self() | Node.list(snapshot_type)]
+        ring = Enum.reduce(nodes, HashRing.new(), &admit_node(&2, &1, state))
+        {ring, state}
+      else
+        {HashRing.add_nodes(HashRing.new(), Keyword.get(options, :nodes, [])), state}
+      end
 
-      :else ->
-        nodes = Keyword.get(options, :nodes, [])
-        ring = HashRing.add_nodes(ring, nodes)
-        true = :ets.insert_new(table, {:ring, ring})
-        {:ok, {table, [], []}}
-    end
+    true = :ets.insert_new(table, {:ring, ring})
+    {:ok, state}
   end
 
-  def handle_call(:list_nodes, _from, {table, _b, _w} = state) do
+  # Monitored membership is controlled only by node events, never manual mutations.
+  def handle_call(message, _from, %__MODULE__{monitor_nodes: true} = state)
+      when elem(message, 0) in [:add_node, :add_nodes, :remove_node],
+      do: {:reply, :ok, state}
+
+  def handle_call(:list_nodes, _from, %__MODULE__{table: table} = state) do
     {:reply, HashRing.nodes(get_ring(table)), state}
   end
 
-  def handle_call({:key_to_node, key}, _from, {table, _b, _w} = state) do
+  def handle_call({:key_to_node, key}, _from, %__MODULE__{table: table} = state) do
     {:reply, HashRing.key_to_node(get_ring(table), key), state}
   end
 
-  def handle_call({:key_to_nodes, key, count}, _from, {table, _b, _w} = state) do
+  def handle_call({:key_to_nodes, key, count}, _from, %__MODULE__{table: table} = state) do
     {:reply, HashRing.key_to_nodes(get_ring(table), key, count), state}
   end
 
-  def handle_call({:add_node, node}, _from, {table, _b, _w} = state) do
+  def handle_call({:add_node, node}, _from, %__MODULE__{table: table} = state) do
     get_ring(table) |> HashRing.add_node(node) |> update_ring(table)
     {:reply, :ok, state}
   end
 
-  def handle_call({:add_node, node, weight}, _from, {table, _b, _w} = state) do
+  def handle_call({:add_node, node, weight}, _from, %__MODULE__{table: table} = state) do
     get_ring(table) |> HashRing.add_node(node, weight) |> update_ring(table)
     {:reply, :ok, state}
   end
 
-  def handle_call({:add_nodes, nodes}, _from, {table, _b, _w} = state) do
+  def handle_call({:add_nodes, nodes}, _from, %__MODULE__{table: table} = state) do
     get_ring(table) |> HashRing.add_nodes(nodes) |> update_ring(table)
     {:reply, :ok, state}
   end
 
-  def handle_call({:remove_node, node}, _from, {table, _b, _w} = state) do
+  def handle_call({:remove_node, node}, _from, %__MODULE__{table: table} = state) do
     get_ring(table) |> HashRing.remove_node(node) |> update_ring(table)
     {:reply, :ok, state}
   end
@@ -147,17 +146,26 @@ defmodule HashRing.Worker do
     {:stop, :shutdown, state}
   end
 
-  def handle_info({:nodeup, node, _info}, {table, b, w} = state) do
-    unless HashRing.Utils.ignore_node?(node, b, w) do
-      get_ring(table) |> HashRing.add_node(node) |> update_ring(table)
-    end
-
+  def handle_info({:nodeup, node, _info}, %__MODULE__{table: table, monitor_nodes: true} = state) do
+    get_ring(table) |> admit_node(node, state) |> update_ring(table)
     {:noreply, state}
   end
 
-  def handle_info({:nodedown, node, _info}, state = {table, _b, _w}) do
+  def handle_info(
+        {:nodedown, node, _info},
+        %__MODULE__{table: table, monitor_nodes: true} = state
+      ) do
     get_ring(table) |> HashRing.remove_node(node) |> update_ring(table)
     {:noreply, state}
+  end
+
+  def handle_info({event, _node, _info}, state) when event in [:nodeup, :nodedown],
+    do: {:noreply, state}
+
+  defp admit_node(ring, node, state) do
+    if HashRing.Utils.ignore_node?(node, state.node_blacklist, state.node_whitelist),
+      do: ring,
+      else: HashRing.add_node(ring, node)
   end
 
   defp get_ets_name(name), do: :"libring_#{name}"
